@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { margin: 0; background: #222; display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+  canvas { display: block; background: white; }
+</style>
+</head>
+<body>
+<script type="module">
+import * as pdfjsLib from 'https://unpkg.com/pdfjs-dist@4.0.379/build/pdf.min.mjs';
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs';
+
+const pdf = await pdfjsLib.getDocument('uploads/pitch.pdf').promise;
+window.__total = pdf.numPages;
+
+const renderPage = async (i) => {
+  const page = await pdf.getPage(i);
+  const viewport = page.getViewport({ scale: 1.0 });
+  const canvas = document.createElement('canvas');
+  canvas.id = 'p' + i;
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  document.body.appendChild(canvas);
+  await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+};
+
+// render in parallel
+await Promise.all(Array.from({length: pdf.numPages}, (_, i) => renderPage(i+1)));
+window.__pdfReady = true;
+</script>
+</body>
+</html>

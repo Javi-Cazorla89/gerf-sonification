@@ -1,18 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import InstrumentSelector from "./components/InstrumentSelector";
 import SoundLibrary from "./components/SoundLibrary";
+import HelpPanel from "./components/HelpPanel";
 import TrackList from "./components/TrackList";
 import TransportControls from "./components/TransportControls";
 import NowPlayingPanel from "./components/NowPlayingPanel";
-import { getAudioPath, INITIAL_TRACKS, SOUND_LIBRARY } from "./config/audio";
-import type { Clip, InstrumentId, Status, TrackId, TrackModel } from "./types/audio";
+import { getAudioPath, INITIAL_TRACKS, SOUND_LIBRARY, SOUND_STYLES } from "./config/audio";
+import type { Clip, SoundStyleId, Status, TrackId, TrackModel } from "./types/audio";
 
 const App = () => {
   const [tracks, setTracks] = useState<TrackModel[]>(INITIAL_TRACKS);
-  const [instrumentId, setInstrumentId] = useState<InstrumentId>("original");
+  const [styleId, setStyleId] = useState<SoundStyleId>("funny");
   const [status, setStatus] = useState<Status>("Ready");
   const [isPlaying, setIsPlaying] = useState(false);
   const [progressByClipId, setProgressByClipId] = useState<Record<string, number>>({});
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   // Per-track audio elements and stop signaling. Refs avoid re-render churn while playing.
   const trackAudioRefs = useRef<Record<TrackId, HTMLAudioElement | null>>({
@@ -199,7 +202,8 @@ const App = () => {
     const sound = SOUND_LIBRARY.find((s) => s.id === soundId);
     if (!sound) return;
 
-    const filePath = getAudioPath(sound, instrumentId);
+    const style = SOUND_STYLES.find((s) => s.id === styleId) ?? SOUND_STYLES[0];
+    const filePath = getAudioPath(sound, style.instrumentId);
     setTracks((current) =>
       current.map((t) => {
         if (t.id !== trackId) return t;
@@ -213,12 +217,20 @@ const App = () => {
           midiPath: sound.midiPath,
           orderIndex,
           state: "ready",
-          instrumentId,
+          instrumentId: style.instrumentId,
         };
         return { ...t, clips: [...t.clips, newClip] };
       }),
     );
     if (status !== "Playing") setStatus("Ready");
+  };
+
+  // Click-to-add from the Sound Library: route the sound to its category track.
+  const handleAddSoundToTrack = (soundId: string) => {
+    const sound = SOUND_LIBRARY.find((s) => s.id === soundId);
+    if (!sound) return;
+    const trackId: TrackId = sound.category === "gut" ? "gut" : "brain";
+    handleDropSound(trackId, soundId);
   };
 
   const handleRemoveClip = (trackId: TrackId, clipId: string) => {
@@ -261,42 +273,86 @@ const App = () => {
           <p className="eyebrow">GERF · Serotonin Sonification</p>
           <h1>Brain &amp; Gut Studio</h1>
           <p className="hero__copy">
-            Drag sounds onto the Brain or Gut track. Press Play — both tracks fire at once and each
-            plays its clips in sequence.
+            Drag sounds onto the Brain or Gut card — or tap to add them. Press Play and both tracks
+            fire at once, each playing its clips in sequence.
           </p>
         </div>
         <div className="hero__controls">
-          <InstrumentSelector value={instrumentId} onChange={setInstrumentId} />
+          <InstrumentSelector value={styleId} onChange={setStyleId} />
+          <div className="hero__actions">
+            <button
+              type="button"
+              className={`pill-btn pill-btn--library ${libraryOpen ? "is-on" : ""}`}
+              onClick={() => setLibraryOpen((v) => !v)}
+            >
+              <span className="pill-btn__icon" aria-hidden>♪</span> Sound Library
+            </button>
+            <button
+              type="button"
+              className="pill-btn"
+              onClick={() => setHelpOpen(true)}
+            >
+              <span className="pill-btn__icon" aria-hidden>?</span> How to play
+            </button>
+          </div>
         </div>
       </header>
 
-      <main className="layout">
-        <SoundLibrary sounds={SOUND_LIBRARY} />
+      <div className="helper">
+        <div className="helper__step">
+          <span className="helper__num">1</span>
+          <span className="helper__text">
+            Open the <b>library</b> &amp; add sounds
+          </span>
+        </div>
+        <div className="helper__step">
+          <span className="helper__num">2</span>
+          <span className="helper__text">
+            Press the big <b>PLAY</b>
+          </span>
+        </div>
+        <div className="helper__step">
+          <span className="helper__num">3</span>
+          <span className="helper__text">
+            <b>Listen</b> — they sing together!
+          </span>
+        </div>
+      </div>
 
-        <section className="main-column">
-          <TransportControls
-            canPlay={canPlay}
-            canClear={canClear}
-            isPlaying={isPlaying}
-            onPlay={handlePlay}
-            onStop={handleStop}
-            onClear={handleClear}
-            status={status}
-          />
-          <NowPlayingPanel
-            brain={brainNowPlaying ?? null}
-            gut={gutNowPlaying ?? null}
-            progressByClipId={progressByClipId}
-          />
-          <TrackList
-            tracks={tracks}
-            progressByClipId={progressByClipId}
-            onDropSound={handleDropSound}
-            onRemoveClip={handleRemoveClip}
-            onToggleMute={handleToggleMute}
-          />
-        </section>
+      <main className="studio-wrap">
+        <TrackList
+          tracks={tracks}
+          progressByClipId={progressByClipId}
+          onDropSound={handleDropSound}
+          onRemoveClip={handleRemoveClip}
+          onToggleMute={handleToggleMute}
+        />
+
+        <NowPlayingPanel
+          brain={brainNowPlaying ?? null}
+          gut={gutNowPlaying ?? null}
+          progressByClipId={progressByClipId}
+        />
       </main>
+
+      <TransportControls
+        canPlay={canPlay}
+        canClear={canClear}
+        isPlaying={isPlaying}
+        onPlay={handlePlay}
+        onStop={handleStop}
+        onClear={handleClear}
+        status={status}
+      />
+
+      <SoundLibrary
+        sounds={SOUND_LIBRARY}
+        open={libraryOpen}
+        onClose={() => setLibraryOpen(false)}
+        onAddSound={handleAddSoundToTrack}
+      />
+
+      {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} />}
     </div>
   );
 };

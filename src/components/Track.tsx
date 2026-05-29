@@ -1,5 +1,6 @@
 import { useState, type DragEvent } from "react";
 import Clip from "./Clip";
+import SirToneMascot from "./SirToneMascot";
 import type { TrackId, TrackModel } from "../types/audio";
 
 interface TrackProps {
@@ -9,6 +10,11 @@ interface TrackProps {
   onRemoveClip: (trackId: TrackId, clipId: string) => void;
   onToggleMute: (trackId: TrackId) => void;
 }
+
+const STAGE_INFO: Record<TrackId, { title: string; sub: string; face: string }> = {
+  brain: { title: "BRAIN", sub: "thinking signals", face: "🧠" },
+  gut: { title: "GUT", sub: "gut feelings", face: "🦠" },
+};
 
 const Track = ({ track, progressByClipId, onDropSound, onRemoveClip, onToggleMute }: TrackProps) => {
   const [isOver, setIsOver] = useState(false);
@@ -30,49 +36,64 @@ const Track = ({ track, progressByClipId, onDropSound, onRemoveClip, onToggleMut
     }
   };
 
-  const repeatedName = `${track.name.toUpperCase()} · ${track.name.toUpperCase()} · ${track.name.toUpperCase()}`;
+  const info = STAGE_INFO[track.id];
+  const isSinging = track.clips.some((c) => c.state === "playing");
+  const muted = track.muted ?? false;
+
   return (
-    <section className={`track-row track-row--${track.id}`}>
-      <div className={`track-label track-label--${track.id}`}>
-        <span className="track-label__repeat" aria-hidden>{repeatedName}</span>
-        <div className="track-label__top">
-          <span className={`pill pill--${track.id}`}>{track.name}</span>
-          <button
-            type="button"
-            className={`mute-btn ${track.muted ? "is-muted" : ""}`}
-            onClick={() => onToggleMute(track.id)}
-            aria-pressed={track.muted ?? false}
-            title={track.muted ? "Unmute" : "Mute"}
-          >
-            {track.muted ? "Muted" : "M"}
-          </button>
+    <section className={`stage stage--${track.id} ${isSinging ? "is-singing" : ""}`}>
+      <div className="stage__head">
+        <SirToneMascot cat={track.id} singing={isSinging} size="sm" />
+        <div className="stage__head-text">
+          <h2 className="stage__name">
+            <span className="stage__badge" aria-hidden>{info.face}</span>
+            {info.title}
+          </h2>
+          <div className="stage__sub">{info.sub}</div>
         </div>
-        <span className="track-label__subtitle">
-          {track.clips.length} {track.clips.length === 1 ? "clip" : "clips"}
-        </span>
+        <button
+          type="button"
+          className={`onoff ${muted ? "is-off" : ""}`}
+          onClick={() => onToggleMute(track.id)}
+          aria-pressed={muted}
+          title={muted ? "Unmute" : "Mute"}
+        >
+          <span className="onoff__icon" aria-hidden>{muted ? "🔇" : "🔊"}</span>
+          {muted ? "OFF" : "ON"}
+        </button>
       </div>
-      <div
-        className={`track-lane ${isOver ? "is-over" : ""}`}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-      >
-        {track.clips.length === 0 ? (
-          <div className="track-placeholder">
-            Drop sounds here to build the {track.name} sequence
-          </div>
-        ) : (
-          track.clips.map((clip, index) => (
-            <Clip
-              key={clip.id}
-              clip={clip}
-              index={index}
-              trackId={track.id}
-              progress={progressByClipId[clip.id] ?? 0}
-              onRemove={(clipId) => onRemoveClip(track.id, clipId)}
-            />
-          ))
-        )}
+
+      <div className="tray-wrap">
+        <div className="tray-label">
+          My song
+          <span className="tray-label__count">{track.clips.length}</span>
+        </div>
+        <div
+          className={`track-lane ${track.clips.length === 0 ? "is-empty" : ""} ${
+            isOver ? "is-over" : ""
+          }`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          {track.clips.length === 0 ? (
+            <div className="track-placeholder">
+              <span className="track-placeholder__icon" aria-hidden>＋</span>
+              Drag or add {track.name} sounds here
+            </div>
+          ) : (
+            track.clips.map((clip, index) => (
+              <Clip
+                key={clip.id}
+                clip={clip}
+                index={index}
+                trackId={track.id}
+                progress={progressByClipId[clip.id] ?? 0}
+                onRemove={(clipId) => onRemoveClip(track.id, clipId)}
+              />
+            ))
+          )}
+        </div>
       </div>
     </section>
   );
