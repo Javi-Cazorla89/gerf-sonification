@@ -267,15 +267,7 @@ const App = () => {
 
       <header className="hero">
         <div className="hero__title">
-          <p className="hero__repeat" aria-hidden>
-            NEUROSTEMSOUND · NEUROSTEMSOUND · NEUROSTEMSOUND
-          </p>
-          <p className="eyebrow">GERF · Serotonin Sonification</p>
           <h1>Brain &amp; Gut Studio</h1>
-          <p className="hero__copy">
-            Drag sounds onto the Brain or Gut card — or tap to add them. Press Play and both tracks
-            fire at once, each playing its clips in sequence.
-          </p>
         </div>
         <div className="hero__controls">
           <InstrumentSelector value={styleId} onChange={setStyleId} />
