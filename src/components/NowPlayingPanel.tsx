@@ -6,6 +6,8 @@ interface NowPlayingPanelProps {
   progressByClipId: Record<string, number>;
 }
 
+const FACE: Record<TrackId, string> = { brain: "🧠", gut: "🦠" };
+
 const Lane = ({
   trackId,
   label,
@@ -21,6 +23,7 @@ const Lane = ({
   return (
     <div className={`np-lane np-lane--${trackId} ${clip ? "is-active" : ""}`}>
       <div className="np-lane__head">
+        <span className="np-lane__face" aria-hidden>{FACE[trackId]}</span>
         <span className={`pill pill--${trackId}`}>{label}</span>
         <span className="np-lane__title">{clip ? clip.name : "—"}</span>
       </div>

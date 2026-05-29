@@ -4,9 +4,10 @@ import type { SoundDefinition } from "../types/audio";
 interface SoundCardProps {
   sound: SoundDefinition;
   onDragStart: (event: DragEvent<HTMLElement>) => void;
+  onAdd: () => void;
 }
 
-const SoundCard = ({ sound, onDragStart }: SoundCardProps) => {
+const SoundCard = ({ sound, onDragStart, onAdd }: SoundCardProps) => {
   return (
     <div
       className={`sound-card sound-card--${sound.category}`}
@@ -17,10 +18,16 @@ const SoundCard = ({ sound, onDragStart }: SoundCardProps) => {
       <span className="sound-card__dot" aria-hidden />
       <div className="sound-card__body">
         <span className="sound-card__name">{sound.displayName}</span>
-        <span className="sound-card__meta">
-          {sound.midiPath ? "wav + mid" : "wav"}
-        </span>
+        <span className="sound-card__meta">{sound.midiPath ? "wav + mid" : "wav"}</span>
       </div>
+      <button
+        type="button"
+        className="sound-card__add"
+        onClick={onAdd}
+        aria-label={`Add ${sound.displayName}`}
+      >
+        ＋ Add
+      </button>
     </div>
   );
 };

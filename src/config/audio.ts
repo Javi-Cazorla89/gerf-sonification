@@ -3,6 +3,7 @@ import type {
   InstrumentOption,
   SoundCategory,
   SoundDefinition,
+  SoundStyleOption,
   TrackModel,
 } from "../types/audio";
 
@@ -11,6 +12,15 @@ export const INSTRUMENTS: InstrumentOption[] = [
   { id: "piano", name: "Piano", enabled: false, pathPrefix: "/audio/piano" },
   { id: "violin", name: "Violin", enabled: false, pathPrefix: "/audio/violin" },
   { id: "synthesiser", name: "Synthesiser", enabled: false, pathPrefix: "/audio/synthesiser" },
+];
+
+// "Sir Tone plays …" segmented-control options. Until styled audio is produced
+// these all play the original recordings; the mapping is here so swapping in
+// real styled banks later is a one-line change per style.
+export const SOUND_STYLES: SoundStyleOption[] = [
+  { id: "classical", name: "Classical", icon: "🎻", instrumentId: "original" },
+  { id: "electronic", name: "Electronic", icon: "🎹", instrumentId: "original" },
+  { id: "funny", name: "Funny", icon: "🤪", instrumentId: "original" },
 ];
 
 const BRAIN_TOKENS = ["brain", "neuron", "neural", "raphe", "stem", "serotonergic"];

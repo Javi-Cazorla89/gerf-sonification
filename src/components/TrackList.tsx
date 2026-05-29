@@ -17,24 +17,17 @@ const TrackList = ({
   onToggleMute,
 }: TrackListProps) => {
   return (
-    <div className="panel workspace">
-      <div className="panel-header">
-        <p className="repeat-heading" aria-hidden>TRACKS · TRACKS · TRACKS · TRACKS · TRACKS</p>
-        <p className="eyebrow">Arrangement</p>
-        <h2>Tracks</h2>
-      </div>
-      <div className="track-list">
-        {tracks.map((track) => (
-          <Track
-            key={track.id}
-            track={track}
-            progressByClipId={progressByClipId}
-            onDropSound={onDropSound}
-            onRemoveClip={onRemoveClip}
-            onToggleMute={onToggleMute}
-          />
-        ))}
-      </div>
+    <div className="studio">
+      {tracks.map((track) => (
+        <Track
+          key={track.id}
+          track={track}
+          progressByClipId={progressByClipId}
+          onDropSound={onDropSound}
+          onRemoveClip={onRemoveClip}
+          onToggleMute={onToggleMute}
+        />
+      ))}
     </div>
   );
 };

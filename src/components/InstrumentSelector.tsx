@@ -1,23 +1,31 @@
-import { INSTRUMENTS } from "../config/audio";
-import type { InstrumentId } from "../types/audio";
+import { SOUND_STYLES } from "../config/audio";
+import type { SoundStyleId } from "../types/audio";
 
 interface InstrumentSelectorProps {
-  value: InstrumentId;
-  onChange: (value: InstrumentId) => void;
+  value: SoundStyleId;
+  onChange: (value: SoundStyleId) => void;
 }
 
+// Custom pill-style segmented control — replaces the native <select>.
 const InstrumentSelector = ({ value, onChange }: InstrumentSelectorProps) => {
   return (
-    <label className="instrument-selector">
-      <span>Instrument</span>
-      <select value={value} onChange={(event) => onChange(event.target.value as InstrumentId)}>
-        {INSTRUMENTS.map((instrument) => (
-          <option key={instrument.id} value={instrument.id} disabled={!instrument.enabled}>
-            {instrument.enabled ? instrument.name : `${instrument.name} (coming soon)`}
-          </option>
+    <div className="style-picker">
+      <span className="style-picker__label">Sir Tone plays</span>
+      <div className="style-seg" role="group" aria-label="Sound style">
+        {SOUND_STYLES.map((style) => (
+          <button
+            key={style.id}
+            type="button"
+            className={`style-opt ${value === style.id ? "is-on" : ""}`}
+            aria-pressed={value === style.id}
+            onClick={() => onChange(style.id)}
+          >
+            <span className="style-opt__icon" aria-hidden>{style.icon}</span>
+            {style.name}
+          </button>
         ))}
-      </select>
-    </label>
+      </div>
+    </div>
   );
 };
 

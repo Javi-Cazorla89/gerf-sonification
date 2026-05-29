@@ -7,6 +7,19 @@ export interface InstrumentOption {
   pathPrefix: string;
 }
 
+// The playful "Sir Tone plays …" styles shown in the UI. These currently all
+// map to the original recordings (no styled audio files exist yet) but drive
+// the segmented-control selector.
+export type SoundStyleId = "classical" | "electronic" | "funny";
+
+export interface SoundStyleOption {
+  id: SoundStyleId;
+  name: string;
+  icon: string;
+  /** The instrument bank this style maps to until styled audio exists. */
+  instrumentId: InstrumentId;
+}
+
 export type TrackId = "brain" | "gut";
 export type DefaultTrackId = TrackId | "unassigned";
 
