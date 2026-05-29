@@ -7,6 +7,7 @@ interface TrackListProps {
   onDropSound: (trackId: TrackId, soundId: string) => void;
   onRemoveClip: (trackId: TrackId, clipId: string) => void;
   onToggleMute: (trackId: TrackId) => void;
+  onOpenLibrary: (trackId: TrackId) => void;
 }
 
 const TrackList = ({
@@ -15,6 +16,7 @@ const TrackList = ({
   onDropSound,
   onRemoveClip,
   onToggleMute,
+  onOpenLibrary,
 }: TrackListProps) => {
   return (
     <div className="studio">
@@ -26,6 +28,7 @@ const TrackList = ({
           onDropSound={onDropSound}
           onRemoveClip={onRemoveClip}
           onToggleMute={onToggleMute}
+          onOpenLibrary={onOpenLibrary}
         />
       ))}
     </div>
