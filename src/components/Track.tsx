@@ -9,6 +9,7 @@ interface TrackProps {
   onDropSound: (trackId: TrackId, soundId: string) => void;
   onRemoveClip: (trackId: TrackId, clipId: string) => void;
   onToggleMute: (trackId: TrackId) => void;
+  onOpenLibrary: (trackId: TrackId) => void;
 }
 
 const STAGE_INFO: Record<TrackId, { title: string; sub: string; face: string }> = {
@@ -16,7 +17,14 @@ const STAGE_INFO: Record<TrackId, { title: string; sub: string; face: string }> 
   gut: { title: "GUT", sub: "gut feelings", face: "🦠" },
 };
 
-const Track = ({ track, progressByClipId, onDropSound, onRemoveClip, onToggleMute }: TrackProps) => {
+const Track = ({
+  track,
+  progressByClipId,
+  onDropSound,
+  onRemoveClip,
+  onToggleMute,
+  onOpenLibrary,
+}: TrackProps) => {
   const [isOver, setIsOver] = useState(false);
 
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
@@ -77,21 +85,37 @@ const Track = ({ track, progressByClipId, onDropSound, onRemoveClip, onToggleMut
           onDrop={handleDrop}
         >
           {track.clips.length === 0 ? (
-            <div className="track-placeholder">
+            <button
+              type="button"
+              className="track-placeholder"
+              onClick={() => onOpenLibrary(track.id)}
+            >
               <span className="track-placeholder__icon" aria-hidden>＋</span>
-              Drag or add {track.name} sounds here
-            </div>
+              Add {track.name} sounds
+              <span className="track-placeholder__hint">tap, or drag from the library</span>
+            </button>
           ) : (
-            track.clips.map((clip, index) => (
-              <Clip
-                key={clip.id}
-                clip={clip}
-                index={index}
-                trackId={track.id}
-                progress={progressByClipId[clip.id] ?? 0}
-                onRemove={(clipId) => onRemoveClip(track.id, clipId)}
-              />
-            ))
+            <>
+              {track.clips.map((clip, index) => (
+                <Clip
+                  key={clip.id}
+                  clip={clip}
+                  index={index}
+                  trackId={track.id}
+                  progress={progressByClipId[clip.id] ?? 0}
+                  onRemove={(clipId) => onRemoveClip(track.id, clipId)}
+                />
+              ))}
+              <button
+                type="button"
+                className="lane-add"
+                onClick={() => onOpenLibrary(track.id)}
+                aria-label={`Add more ${track.name} sounds`}
+                title={`Add more ${track.name} sounds`}
+              >
+                ＋
+              </button>
+            </>
           )}
         </div>
       </div>

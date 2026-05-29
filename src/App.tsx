@@ -15,6 +15,7 @@ const App = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progressByClipId, setProgressByClipId] = useState<Record<string, number>>({});
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [libraryTab, setLibraryTab] = useState<TrackId>("brain");
   const [helpOpen, setHelpOpen] = useState(false);
 
   // Per-track audio elements and stop signaling. Refs avoid re-render churn while playing.
@@ -225,12 +226,17 @@ const App = () => {
     if (status !== "Playing") setStatus("Ready");
   };
 
-  // Click-to-add from the Sound Library: route the sound to its category track.
+  // Click-to-add from the Sound Library: route the sound to the active library
+  // tab (set by the top button or a track's "+"), so adding always lands on the
+  // track the user is browsing.
   const handleAddSoundToTrack = (soundId: string) => {
-    const sound = SOUND_LIBRARY.find((s) => s.id === soundId);
-    if (!sound) return;
-    const trackId: TrackId = sound.category === "gut" ? "gut" : "brain";
-    handleDropSound(trackId, soundId);
+    handleDropSound(libraryTab, soundId);
+  };
+
+  // Open the library scoped to a track (called by the Brain/Gut "+" buttons).
+  const openLibraryForTrack = (trackId: TrackId) => {
+    setLibraryTab(trackId);
+    setLibraryOpen(true);
   };
 
   const handleRemoveClip = (trackId: TrackId, clipId: string) => {
@@ -318,6 +324,7 @@ const App = () => {
           onDropSound={handleDropSound}
           onRemoveClip={handleRemoveClip}
           onToggleMute={handleToggleMute}
+          onOpenLibrary={openLibraryForTrack}
         />
 
         <NowPlayingPanel
@@ -340,6 +347,8 @@ const App = () => {
       <SoundLibrary
         sounds={SOUND_LIBRARY}
         open={libraryOpen}
+        tab={libraryTab}
+        onTabChange={setLibraryTab}
         onClose={() => setLibraryOpen(false)}
         onAddSound={handleAddSoundToTrack}
       />

@@ -1,10 +1,12 @@
-import { useState, type DragEvent } from "react";
+import { type DragEvent } from "react";
 import type { SoundDefinition, TrackId } from "../types/audio";
 import SoundCard from "./SoundCard";
 
 interface SoundLibraryProps {
   sounds: SoundDefinition[];
   open: boolean;
+  tab: TrackId;
+  onTabChange: (tab: TrackId) => void;
   onClose: () => void;
   onAddSound: (soundId: string) => void;
 }
@@ -14,9 +16,7 @@ const TABS: { id: TrackId; label: string }[] = [
   { id: "gut", label: "Gut" },
 ];
 
-const SoundLibrary = ({ sounds, open, onClose, onAddSound }: SoundLibraryProps) => {
-  const [tab, setTab] = useState<TrackId>("brain");
-
+const SoundLibrary = ({ sounds, open, tab, onTabChange, onClose, onAddSound }: SoundLibraryProps) => {
   const handleDragStart = (event: DragEvent<HTMLElement>, soundId: string) => {
     event.dataTransfer.effectAllowed = "copy";
     event.dataTransfer.setData("text/plain", soundId);
@@ -56,7 +56,7 @@ const SoundLibrary = ({ sounds, open, onClose, onAddSound }: SoundLibraryProps) 
               key={t.id}
               type="button"
               className={tab === t.id ? "is-on" : ""}
-              onClick={() => setTab(t.id)}
+              onClick={() => onTabChange(t.id)}
             >
               {t.label}
             </button>
