@@ -1,5 +1,4 @@
 import type {
-  InstrumentId,
   InstrumentOption,
   SoundCategory,
   SoundDefinition,
@@ -14,9 +13,9 @@ export const INSTRUMENTS: InstrumentOption[] = [
   { id: "synthesiser", name: "Synthesiser", enabled: false, pathPrefix: "/audio/synthesiser" },
 ];
 
-// "Sir Tone plays …" segmented-control options. Until styled audio is produced
-// these all play the original recordings; the mapping is here so swapping in
-// real styled banks later is a one-line change per style.
+// "Sir Tone plays …" segmented-control options. These are PURELY COSMETIC — they
+// never change which file is played. Real styled audio banks could be wired in
+// later, but today every style plays the original recording verbatim.
 export const SOUND_STYLES: SoundStyleOption[] = [
   { id: "classical", name: "Classical", icon: "🎻", instrumentId: "original" },
   { id: "electronic", name: "Electronic", icon: "🎹", instrumentId: "original" },
@@ -33,9 +32,10 @@ const inferCategory = (fileName: string): SoundCategory => {
   return "unassigned";
 };
 
+// Friendly label for the UI only — NEVER used to build a file path.
 const prettify = (fileName: string): string =>
   fileName
-    .replace(/\.(wav|mp3|mid)$/i, "")
+    .replace(/\.wav$/i, "")
     .replace(/[_-]+/g, " ")
     .replace(/\bno drug\b/gi, "(no drug)")
     .replace(/\bpre drug\b/gi, "(pre-drug)")
@@ -43,50 +43,47 @@ const prettify = (fileName: string): string =>
     .replace(/\s+/g, " ")
     .trim();
 
-// Actual audio files in public/audio. Append here when adding more.
-const AUDIO_FILES = [
-  "ZB5_peaks_PSD.wav",
-  "ZB5_peaks_PRD.wav",
-  "ZB5_noise_PSD.wav",
-  "ZB5_noise_PRD.wav",
-  "brain_diffusion_3peaks_no-drug.wav",
-  "brain_diffusion_noise_no-drug.wav",
-  "brain_very-frequent_1peak_no-drug.wav",
-  "brain_very-frequent_2peaks_no-drug.wav",
-  "brain_very-frequent_noise_no-drug.wav",
-  "gut_organoid2_1peak_post-drug.wav",
-  "gut_organoid2_3peaks_post-drug.wav",
-  "gut_organoid2_low-noise_post-drug.wav",
-  "gut_organoid3_2peaks_post-drug.wav",
-  "gut_organoid3_3peaks_post-drug.wav",
-  "gut_organoid3_noise_pre-drug.wav",
+/**
+ * SOURCE OF TRUTH — the real playable files in public/audio.
+ *
+ * Rules enforced here:
+ *  - `wav` is the EXACT .wav filename on disk (the only playable format).
+ *  - `midi` is an optional EXACT .mid filename that exists alongside the wav;
+ *    it is attached as metadata only and is never played.
+ *  - filePath is always "/audio/" + wav — no reconstruction from names/ids.
+ *
+ * Verified against `find public/audio -maxdepth 1 -type f` (15 wavs):
+ *  brain ×5, gut ×6, ZB5 ×4. The ZB5 recordings have no paired .mid on disk.
+ */
+const AUDIO_ENTRIES: { wav: string; midi?: string }[] = [
+  // --- Brain ---
+  { wav: "brain_diffusion_3peaks_no-drug.wav", midi: "brain_diffusion_3peaks_no-drug.mid" },
+  { wav: "brain_diffusion_noise_no-drug.wav", midi: "brain_diffusion_noise_no-drug.mid" },
+  { wav: "brain_very-frequent_1peak_no-drug.wav", midi: "brain_very-frequent_1peak_no-drug.mid" },
+  { wav: "brain_very-frequent_2peaks_no-drug.wav", midi: "brain_very-frequent_2peaks_no-drug.mid" },
+  { wav: "brain_very-frequent_noise_no-drug.wav", midi: "brain_very-frequent_noise_no-drug.mid" },
+  // --- Gut ---
+  { wav: "gut_organoid2_1peak_post-drug.wav", midi: "gut_organoid2_1peak_post-drug.mid" },
+  { wav: "gut_organoid2_3peaks_post-drug.wav", midi: "gut_organoid2_3peaks_post-drug.mid" },
+  { wav: "gut_organoid2_low-noise_post-drug.wav", midi: "gut_organoid2_low-noise_post-drug.mid" },
+  { wav: "gut_organoid3_2peaks_post-drug.wav", midi: "gut_organoid3_2peaks_post-drug.mid" },
+  { wav: "gut_organoid3_3peaks_post-drug.wav", midi: "gut_organoid3_3peaks_post-drug.mid" },
+  { wav: "gut_organoid3_noise_pre-drug.wav", midi: "gut_organoid3_noise_pre-drug.mid" },
+  // --- ZB5 (gut cell line) — no paired .mid files exist on disk ---
+  { wav: "ZB5_peaks_PSD.wav" },
+  { wav: "ZB5_peaks_PRD.wav" },
+  { wav: "ZB5_noise_PSD.wav" },
+  { wav: "ZB5_noise_PRD.wav" },
 ];
 
-// .mid files paired with wavs (for future MIDI note-level visualisation).
-const MIDI_FILES = new Set([
-  "brain_diffusion_3peaks_no-drug.mid",
-  "brain_diffusion_noise_no-drug.mid",
-  "brain_very-frequent_1peak_no-drug.mid",
-  "brain_very-frequent_2peaks_no-drug.mid",
-  "brain_very-frequent_noise_no-drug.mid",
-  "gut_organoid2_1peak_post-drug.mid",
-  "gut_organoid2_3peaks_post-drug.mid",
-  "gut_organoid2_low-noise_post-drug.mid",
-  "gut_organoid3_2peaks_post-drug.mid",
-  "gut_organoid3_3peaks_post-drug.mid",
-  "gut_organoid3_noise_pre-drug.mid",
-]);
-
-export const SOUND_LIBRARY: SoundDefinition[] = AUDIO_FILES.map((fileName) => {
-  const category = inferCategory(fileName);
-  const id = fileName.replace(/\.(wav|mp3)$/i, "");
-  const midiName = `${id}.mid`;
+export const SOUND_LIBRARY: SoundDefinition[] = AUDIO_ENTRIES.map(({ wav, midi }) => {
+  const category = inferCategory(wav);
   return {
-    id,
-    displayName: prettify(fileName),
-    fileName,
-    filePath: `/audio/${fileName}`,
-    midiPath: MIDI_FILES.has(midiName) ? `/audio/${midiName}` : undefined,
+    id: wav.replace(/\.wav$/i, ""),
+    displayName: prettify(wav),
+    fileName: wav,
+    filePath: `/audio/${wav}`,
+    midiPath: midi ? `/audio/${midi}` : undefined,
     defaultTrackId: category,
     category,
   };
@@ -96,11 +93,3 @@ export const INITIAL_TRACKS: TrackModel[] = [
   { id: "brain", name: "Brain", clips: [], muted: false },
   { id: "gut", name: "Gut", clips: [], muted: false },
 ];
-
-export const getAudioPath = (sound: SoundDefinition, instrumentId: InstrumentId): string => {
-  const instrument = INSTRUMENTS.find((option) => option.id === instrumentId) ?? INSTRUMENTS[0];
-  if (!instrument.enabled || instrument.id === "original") {
-    return sound.filePath;
-  }
-  return `${instrument.pathPrefix}/${sound.fileName}`;
-};

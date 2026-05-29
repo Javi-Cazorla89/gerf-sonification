@@ -5,7 +5,7 @@ import HelpPanel from "./components/HelpPanel";
 import TrackList from "./components/TrackList";
 import TransportControls from "./components/TransportControls";
 import NowPlayingPanel from "./components/NowPlayingPanel";
-import { getAudioPath, INITIAL_TRACKS, SOUND_LIBRARY, SOUND_STYLES } from "./config/audio";
+import { INITIAL_TRACKS, SOUND_LIBRARY } from "./config/audio";
 import type { Clip, SoundStyleId, Status, TrackId, TrackModel } from "./types/audio";
 
 const App = () => {
@@ -87,6 +87,9 @@ const App = () => {
         if (stopRequestedRef.current) break;
 
         await new Promise<void>((resolve) => {
+          // Play the real file path verbatim — never reconstruct it from id,
+          // name, category, or style.
+          console.log("Playing:", clip.filePath);
           const audio = new Audio(clip.filePath);
           trackAudioRefs.current[trackId] = audio;
           updateClipState(trackId, clip.id, "playing");
@@ -106,12 +109,18 @@ const App = () => {
           };
 
           audio.onended = () => finish("finished");
-          audio.onerror = () => finish("missing");
+          audio.onerror = () => {
+            console.error("Missing audio:", clip.filePath);
+            finish("missing");
+          };
           audio.onpause = () => {
             if (stopRequestedRef.current) finish("ready");
           };
 
-          void audio.play().catch(() => finish("missing"));
+          void audio.play().catch((err) => {
+            console.error("Missing audio:", clip.filePath, err);
+            finish("missing");
+          });
         });
       }
       resolveAll();
@@ -203,8 +212,6 @@ const App = () => {
     const sound = SOUND_LIBRARY.find((s) => s.id === soundId);
     if (!sound) return;
 
-    const style = SOUND_STYLES.find((s) => s.id === styleId) ?? SOUND_STYLES[0];
-    const filePath = getAudioPath(sound, style.instrumentId);
     setTracks((current) =>
       current.map((t) => {
         if (t.id !== trackId) return t;
@@ -214,11 +221,13 @@ const App = () => {
           soundId: sound.id,
           trackId,
           name: sound.displayName,
-          filePath,
+          // Use the exact real file path from the library. The "Sir Tone plays"
+          // style is purely cosmetic and never alters the audio path.
+          filePath: sound.filePath,
           midiPath: sound.midiPath,
           orderIndex,
           state: "ready",
-          instrumentId: style.instrumentId,
+          instrumentId: "original",
         };
         return { ...t, clips: [...t.clips, newClip] };
       }),
