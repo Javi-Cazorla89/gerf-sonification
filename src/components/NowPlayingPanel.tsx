@@ -3,10 +3,11 @@ import type { Clip, TrackId } from "../types/audio";
 interface NowPlayingPanelProps {
   brain: Clip | null;
   gut: Clip | null;
+  skin: Clip | null;
   progressByClipId: Record<string, number>;
 }
 
-const FACE: Record<TrackId, string> = { brain: "🧠", gut: "🦠" };
+const FACE: Record<TrackId, string> = { brain: "🧠", gut: "🦠", skin: "🧴" };
 
 const Lane = ({
   trackId,
@@ -47,7 +48,7 @@ const Lane = ({
   );
 };
 
-const NowPlayingPanel = ({ brain, gut, progressByClipId }: NowPlayingPanelProps) => {
+const NowPlayingPanel = ({ brain, gut, skin, progressByClipId }: NowPlayingPanelProps) => {
   return (
     <div className="panel now-playing">
       <div className="panel-header">
@@ -69,6 +70,12 @@ const NowPlayingPanel = ({ brain, gut, progressByClipId }: NowPlayingPanelProps)
           label="Gut"
           clip={gut}
           progress={gut ? progressByClipId[gut.id] ?? 0 : 0}
+        />
+        <Lane
+          trackId="skin"
+          label="Skin"
+          clip={skin}
+          progress={skin ? progressByClipId[skin.id] ?? 0 : 0}
         />
       </div>
       {/* TODO: when .mid files are loaded, render note-level events here using midiPath. */}

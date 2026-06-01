@@ -15,6 +15,7 @@ interface TrackProps {
 const STAGE_INFO: Record<TrackId, { title: string; sub: string; face: string }> = {
   brain: { title: "BRAIN", sub: "thinking signals", face: "🧠" },
   gut: { title: "GUT", sub: "gut feelings", face: "🦠" },
+  skin: { title: "SKIN", sub: "skin signals", face: "🧴" },
 };
 
 const Track = ({

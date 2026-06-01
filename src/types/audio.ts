@@ -20,10 +20,10 @@ export interface SoundStyleOption {
   folder: SoundStyleId;
 }
 
-export type TrackId = "brain" | "gut";
+export type TrackId = "brain" | "gut" | "skin";
 export type DefaultTrackId = TrackId | "unassigned";
 
-export type SoundCategory = "brain" | "gut" | "unassigned";
+export type SoundCategory = "brain" | "gut" | "skin" | "unassigned";
 
 export interface SoundDefinition {
   id: string;

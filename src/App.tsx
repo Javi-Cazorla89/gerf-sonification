@@ -68,6 +68,7 @@ const App = () => {
   const trackAudioRefs = useRef<Record<TrackId, HTMLAudioElement | null>>({
     brain: null,
     gut: null,
+    skin: null,
   });
   const stopRequestedRef = useRef(false);
   const rafRef = useRef<number | null>(null);
@@ -88,6 +89,8 @@ const App = () => {
     tracks.find((t) => t.id === "brain")?.clips.find((c) => c.state === "playing") ?? null;
   const gutNowPlaying =
     tracks.find((t) => t.id === "gut")?.clips.find((c) => c.state === "playing") ?? null;
+  const skinNowPlaying =
+    tracks.find((t) => t.id === "skin")?.clips.find((c) => c.state === "playing") ?? null;
 
   const updateClipState = (trackId: TrackId, clipId: string, state: Clip["state"]) => {
     setTracks((current) =>
@@ -400,6 +403,7 @@ const App = () => {
         <NowPlayingPanel
           brain={brainNowPlaying ?? null}
           gut={gutNowPlaying ?? null}
+          skin={skinNowPlaying ?? null}
           progressByClipId={progressByClipId}
         />
       </main>

@@ -33,11 +33,14 @@ export const stylePath = (style: SoundStyleId, fileName: string): string =>
   `/audio/${style}/${fileName}`;
 
 const BRAIN_TOKENS = ["brain", "neuron", "neural", "raphe", "stem", "serotonergic"];
+const SKIN_TOKENS = ["skin", "dermal", "epidermis", "tissue", "skin_organoid", "skin-cell", "skin_cell"];
 const GUT_TOKENS = ["gut", "organoid", "intestinal", "enterochromaffin", "zb"];
 
 const inferCategory = (fileName: string): SoundCategory => {
   const lower = fileName.toLowerCase();
+  // Skin is checked before Gut so a hypothetical "skin_organoid" lands on Skin.
   if (BRAIN_TOKENS.some((token) => lower.includes(token))) return "brain";
+  if (SKIN_TOKENS.some((token) => lower.includes(token))) return "skin";
   if (GUT_TOKENS.some((token) => lower.includes(token))) return "gut";
   return "unassigned";
 };
@@ -63,8 +66,8 @@ const prettify = (fileName: string): string =>
  *    wav; it is attached as metadata only and is never played.
  *  - filePath is always originalPath(wav) — no reconstruction from names/ids.
  *
- * Verified against `find public/audio/original -maxdepth 1 -type f` (15 wavs):
- *  brain ×5, gut ×6, ZB5 ×4. The ZB5 recordings have no paired .mid on disk.
+ * Verified against `find public/audio/original -maxdepth 1 -type f` (14 wavs):
+ *  brain ×5, gut ×6, skin ×3. Every entry has a paired .mid on disk.
  */
 const AUDIO_ENTRIES: { wav: string; midi?: string }[] = [
   // --- Brain ---
@@ -80,11 +83,10 @@ const AUDIO_ENTRIES: { wav: string; midi?: string }[] = [
   { wav: "gut_organoid3_2peaks_post-drug.wav", midi: "gut_organoid3_2peaks_post-drug.mid" },
   { wav: "gut_organoid3_3peaks_post-drug.wav", midi: "gut_organoid3_3peaks_post-drug.mid" },
   { wav: "gut_organoid3_noise_pre-drug.wav", midi: "gut_organoid3_noise_pre-drug.mid" },
-  // --- ZB5 (gut cell line) — no paired .mid files exist on disk ---
-  { wav: "ZB5_peaks_PSD.wav" },
-  { wav: "ZB5_peaks_PRD.wav" },
-  { wav: "ZB5_noise_PSD.wav" },
-  { wav: "ZB5_noise_PRD.wav" },
+  // --- Skin ---
+  { wav: "skin_HSKC.wav", midi: "skin_HSKC.mid" },
+  { wav: "skin_ORSKC.wav", midi: "skin_ORSKC.mid" },
+  { wav: "skin_OSKC.wav", midi: "skin_OSKC.mid" },
 ];
 
 export const SOUND_LIBRARY: SoundDefinition[] = AUDIO_ENTRIES.map(({ wav, midi }) => {
@@ -103,4 +105,5 @@ export const SOUND_LIBRARY: SoundDefinition[] = AUDIO_ENTRIES.map(({ wav, midi }
 export const INITIAL_TRACKS: TrackModel[] = [
   { id: "brain", name: "Brain", clips: [], muted: false },
   { id: "gut", name: "Gut", clips: [], muted: false },
+  { id: "skin", name: "Skin", clips: [], muted: false },
 ];
