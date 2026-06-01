@@ -2,6 +2,7 @@ import type {
   InstrumentOption,
   SoundCategory,
   SoundDefinition,
+  SoundStyleId,
   SoundStyleOption,
   TrackModel,
 } from "../types/audio";
@@ -13,14 +14,23 @@ export const INSTRUMENTS: InstrumentOption[] = [
   { id: "synthesiser", name: "Synthesiser", enabled: false, pathPrefix: "/audio/synthesiser" },
 ];
 
-// "Sir Tone plays …" segmented-control options. These are PURELY COSMETIC — they
-// never change which file is played. Real styled audio banks could be wired in
-// later, but today every style plays the original recording verbatim.
+// "Sir Tone plays …" segmented-control options. Each style is a FOLDER under
+// public/audio holding the same filenames as original/. When a styled file is
+// missing, playback falls back to original/ (see stylePath / originalPath).
 export const SOUND_STYLES: SoundStyleOption[] = [
-  { id: "classical", name: "Classical", icon: "🎻", instrumentId: "original" },
-  { id: "electronic", name: "Electronic", icon: "🎹", instrumentId: "original" },
-  { id: "funny", name: "Funny", icon: "🤪", instrumentId: "original" },
+  { id: "strings", name: "String Orchestra", icon: "🎻", folder: "strings" },
+  { id: "electronic", name: "Electronic", icon: "🎹", folder: "electronic" },
+  { id: "funny", name: "Funny", icon: "🤪", folder: "funny" },
 ];
+
+// The default style selected on load.
+export const DEFAULT_STYLE_ID: SoundStyleId = "funny";
+
+// Path builders — the ONLY place audio URLs are assembled. Both take the exact
+// fileName from config (never a displayName) and pick a folder.
+export const originalPath = (fileName: string): string => `/audio/original/${fileName}`;
+export const stylePath = (style: SoundStyleId, fileName: string): string =>
+  `/audio/${style}/${fileName}`;
 
 const BRAIN_TOKENS = ["brain", "neuron", "neural", "raphe", "stem", "serotonergic"];
 const GUT_TOKENS = ["gut", "organoid", "intestinal", "enterochromaffin", "zb"];
@@ -47,12 +57,13 @@ const prettify = (fileName: string): string =>
  * SOURCE OF TRUTH — the real playable files in public/audio.
  *
  * Rules enforced here:
- *  - `wav` is the EXACT .wav filename on disk (the only playable format).
- *  - `midi` is an optional EXACT .mid filename that exists alongside the wav;
- *    it is attached as metadata only and is never played.
- *  - filePath is always "/audio/" + wav — no reconstruction from names/ids.
+ *  - `wav` is the EXACT .wav filename on disk (the only playable format). The
+ *    same filename exists in every style folder (original/strings/electronic/funny).
+ *  - `midi` is an optional EXACT .mid filename that lives alongside the original
+ *    wav; it is attached as metadata only and is never played.
+ *  - filePath is always originalPath(wav) — no reconstruction from names/ids.
  *
- * Verified against `find public/audio -maxdepth 1 -type f` (15 wavs):
+ * Verified against `find public/audio/original -maxdepth 1 -type f` (15 wavs):
  *  brain ×5, gut ×6, ZB5 ×4. The ZB5 recordings have no paired .mid on disk.
  */
 const AUDIO_ENTRIES: { wav: string; midi?: string }[] = [
@@ -82,8 +93,8 @@ export const SOUND_LIBRARY: SoundDefinition[] = AUDIO_ENTRIES.map(({ wav, midi }
     id: wav.replace(/\.wav$/i, ""),
     displayName: prettify(wav),
     fileName: wav,
-    filePath: `/audio/${wav}`,
-    midiPath: midi ? `/audio/${midi}` : undefined,
+    filePath: originalPath(wav),
+    midiPath: midi ? originalPath(midi) : undefined,
     defaultTrackId: category,
     category,
   };

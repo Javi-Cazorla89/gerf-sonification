@@ -5,12 +5,58 @@ import HelpPanel from "./components/HelpPanel";
 import TrackList from "./components/TrackList";
 import TransportControls from "./components/TransportControls";
 import NowPlayingPanel from "./components/NowPlayingPanel";
-import { INITIAL_TRACKS, SOUND_LIBRARY } from "./config/audio";
+import {
+  DEFAULT_STYLE_ID,
+  INITIAL_TRACKS,
+  SOUND_LIBRARY,
+  originalPath,
+  stylePath,
+} from "./config/audio";
 import type { Clip, SoundStyleId, Status, TrackId, TrackModel } from "./types/audio";
+
+// HEAD-probe a URL. Returns true only when the server has a real file there.
+// NOTE: Vite's dev server answers a missing path with index.html and a 200, so
+// a bare `res.ok` would wrongly report styled files as existing — we reject any
+// text/html response so the original/ fallback kicks in.
+async function audioExists(path: string): Promise<boolean> {
+  try {
+    const res = await fetch(path, { method: "HEAD" });
+    if (!res.ok) return false;
+    const type = res.headers.get("content-type") ?? "";
+    if (type.includes("text/html")) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Pick the path to actually play: the styled file if it exists, otherwise the
+// original recording. Returns null only when neither exists. Paths are built
+// from the exact fileName — never from a displayName.
+async function resolvePlayablePath(
+  fileName: string,
+  styleId: SoundStyleId,
+): Promise<string | null> {
+  const styled = stylePath(styleId, fileName);
+  const original = originalPath(fileName);
+
+  if (await audioExists(styled)) {
+    console.log("Playing styled:", styled);
+    return styled;
+  }
+
+  if (await audioExists(original)) {
+    console.log("Falling back to original:", original);
+    return original;
+  }
+
+  console.error("Missing both styled and original:", { styled, original });
+  return null;
+}
 
 const App = () => {
   const [tracks, setTracks] = useState<TrackModel[]>(INITIAL_TRACKS);
-  const [styleId, setStyleId] = useState<SoundStyleId>("funny");
+  const [styleId, setStyleId] = useState<SoundStyleId>(DEFAULT_STYLE_ID);
   const [status, setStatus] = useState<Status>("Ready");
   const [isPlaying, setIsPlaying] = useState(false);
   const [progressByClipId, setProgressByClipId] = useState<Record<string, number>>({});
@@ -29,6 +75,11 @@ const App = () => {
   useEffect(() => {
     tracksRef.current = tracks;
   }, [tracks]);
+  // The selected style is read at play time so changing it affects the next play.
+  const styleRef = useRef(styleId);
+  useEffect(() => {
+    styleRef.current = styleId;
+  }, [styleId]);
 
   const allClips = tracks.flatMap((t) => t.clips);
   const canPlay = allClips.length > 0;
@@ -86,11 +137,21 @@ const App = () => {
       for (const clip of clips) {
         if (stopRequestedRef.current) break;
 
+        // Resolve which file to play BEFORE touching the Audio API. This probes
+        // the styled folder, then original/, and only returns null if neither
+        // exists — so an empty styled folder never causes a false "Missing file".
+        console.log("Selected style:", styleRef.current, "| clip.fileName:", clip.fileName);
+        const resolved = await resolvePlayablePath(clip.fileName, styleRef.current);
+        if (stopRequestedRef.current) break;
+        if (!resolved) {
+          updateClipState(trackId, clip.id, "missing");
+          setProgressByClipId((p) => ({ ...p, [clip.id]: 1 }));
+          continue;
+        }
+        console.log("Resolved path:", resolved);
+
         await new Promise<void>((resolve) => {
-          // Play the real file path verbatim — never reconstruct it from id,
-          // name, category, or style.
-          console.log("Playing:", clip.filePath);
-          const audio = new Audio(clip.filePath);
+          const audio = new Audio(resolved);
           trackAudioRefs.current[trackId] = audio;
           updateClipState(trackId, clip.id, "playing");
 
@@ -110,7 +171,7 @@ const App = () => {
 
           audio.onended = () => finish("finished");
           audio.onerror = () => {
-            console.error("Missing audio:", clip.filePath);
+            console.error("Missing audio:", resolved);
             finish("missing");
           };
           audio.onpause = () => {
@@ -118,7 +179,7 @@ const App = () => {
           };
 
           void audio.play().catch((err) => {
-            console.error("Missing audio:", clip.filePath, err);
+            console.error("Playback failed:", resolved, err);
             finish("missing");
           });
         });
@@ -221,9 +282,9 @@ const App = () => {
           soundId: sound.id,
           trackId,
           name: sound.displayName,
-          // Use the exact real file path from the library. The "Sir Tone plays"
-          // style is purely cosmetic and never alters the audio path.
-          filePath: sound.filePath,
+          // Store the exact fileName from config. Playback resolves the style
+          // folder (with original/ fallback) at play time from this.
+          fileName: sound.fileName,
           midiPath: sound.midiPath,
           orderIndex,
           state: "ready",
