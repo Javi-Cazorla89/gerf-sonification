@@ -26,10 +26,18 @@ Two renderers are supported, chosen automatically (override with --renderer):
                   needed, fully reproducible, used automatically when fluidsynth
                   isn't available.
 
+Voices (built-in synth):
+    strings    - smooth sustained string pad (no vibrato/detune warble)
+    electronic - clean band-limited synth, bright but not piercing
+    funny      - playful cartoon synth blip with a gentle pitch bounce
+                 (deliberately NOT xylophone/marimba/bells)
+
 Usage:
-    python3 scripts/render_styles.py            # render everything
-    python3 scripts/render_styles.py --force     # overwrite existing styled wavs
-    python3 scripts/render_styles.py --validate  # just print the counts, render nothing
+    python3 scripts/render_styles.py                       # render everything
+    python3 scripts/render_styles.py --force                # overwrite existing wavs
+    python3 scripts/render_styles.py --limit 2 --force      # preview first 2 sounds
+    python3 scripts/render_styles.py --only brain_diffusion_3peaks_no-drug --force
+    python3 scripts/render_styles.py --validate             # print counts, render nothing
     python3 scripts/render_styles.py --renderer synth
 """
 from __future__ import annotations
@@ -149,57 +157,78 @@ def _adsr(n: int, sr: int, a: float, d: float, s: float, r: float):
     return env
 
 
-def _saw(freq, t, harmonics):
+def _osc(phase, nharm: int, tilt: float, odd_only: bool = False):
+    """Band-limited additive oscillator from a phase array.
+
+    `tilt` controls the spectral rolloff: amplitude of harmonic k is 1/k**tilt,
+    so a higher tilt = darker/smoother (fewer harsh upper harmonics). `odd_only`
+    gives a hollow, square-ish tone; otherwise it's a saw-ish tone.
+    """
     import numpy as np
 
-    out = np.zeros_like(t)
-    for k in range(1, harmonics + 1):
-        out += np.sin(2 * np.pi * freq * k * t) / k
-    return out * (2.0 / np.pi)
+    out = np.zeros_like(phase)
+    step = 2 if odd_only else 1
+    for k in range(1, nharm + 1, step):
+        out += (1.0 / (k ** tilt)) * np.sin(k * phase)
+    return out
+
+
+def _smooth(x, width: int):
+    """Cheap, fast lowpass (Hann moving average) to tame harshness — no IIR."""
+    import numpy as np
+
+    if width <= 1:
+        return x
+    k = np.hanning(width)
+    k /= k.sum()
+    return np.convolve(x, k, mode="same").astype(np.float32)
 
 
 def render_note_synth(voice: str, freq: float, dur: float, vel: float):
     import numpy as np
 
-    amp = (vel / 127.0)
+    amp = vel / 127.0
 
     if voice == "strings":
-        length = dur + 0.35
+        # Smooth, sustained string pad. Single static pitch (NO vibrato, NO
+        # detuned layers) so there is no warble/beating. Soft attack, long
+        # release, gentle spectral rolloff.
+        length = dur + 0.7
         n = max(1, int(length * SR))
         t = np.arange(n) / SR
-        vib = 1.0 + 0.004 * np.sin(2 * np.pi * 5.5 * t)
-        layers = (
-            _saw(freq * 0.997, t * vib, 12)
-            + _saw(freq * 1.003, t * vib, 12)
-            + _saw(freq, t * vib, 12)
-        ) / 3.0
-        env = _adsr(n, SR, a=0.12, d=0.05, s=0.85, r=0.30)
-        return (layers * env * amp * 0.5).astype(np.float32)
+        phase = 2 * np.pi * freq * t
+        tone = _osc(phase, nharm=18, tilt=1.35)
+        tone += 0.22 * _osc(2 * np.pi * (freq * 0.5) * t, nharm=8, tilt=1.5)  # body octave below
+        tone = _smooth(tone, 5)
+        env = _adsr(n, SR, a=0.28, d=0.10, s=0.90, r=0.60)
+        return (tone * env * amp * 0.4).astype(np.float32)
 
     if voice == "electronic":
-        length = dur + 0.10
+        # Clean synth: band-limited saw + hollow sub-oscillator, lightly
+        # lowpassed so it's bright but not piercing. Light envelope.
+        length = dur + 0.18
         n = max(1, int(length * SR))
         t = np.arange(n) / SR
-        sig = (
-            _saw(freq * 0.99, t, 24)
-            + _saw(freq * 1.01, t, 24)
-            + 0.4 * np.sign(np.sin(2 * np.pi * (freq / 2) * t))  # square sub-osc
-        ) / 2.4
-        env = _adsr(n, SR, a=0.005, d=0.08, s=0.72, r=0.08)
-        return (sig * env * amp * 0.55).astype(np.float32)
+        phase = 2 * np.pi * freq * t
+        tone = _osc(phase, nharm=12, tilt=1.10)
+        tone += 0.30 * _osc(2 * np.pi * (freq * 0.5) * t, nharm=5, tilt=1.4, odd_only=True)
+        tone = _smooth(tone, 7)
+        env = _adsr(n, SR, a=0.012, d=0.07, s=0.80, r=0.14)
+        return (tone * env * amp * 0.5).astype(np.float32)
 
-    # "funny" -> toy marimba / xylophone: percussive one-shot, ignores note length
-    length = 0.55
+    # "funny" -> playful cartoon synth blip. A short, soft filtered-square
+    # "toot" with a gentle downward pitch bounce. NO xylophone/marimba/bells.
+    length = 0.38
     n = max(1, int(length * SR))
     t = np.arange(n) / SR
-    body = (
-        np.sin(2 * np.pi * freq * t)
-        + 0.35 * np.sin(2 * np.pi * freq * 3.9 * t)   # marimba bar overtone
-        + 0.15 * np.sin(2 * np.pi * freq * 6.8 * t)
-    )
-    decay = np.exp(-t / 0.16).astype(np.float32)
-    click = np.exp(-t / 0.004) * np.sin(2 * np.pi * freq * 8 * t) * 0.3
-    return ((body * decay + click) * amp * 0.6).astype(np.float32)
+    # Pitch starts ~3 semitones high and bounces down, settling just below base.
+    bend_semitones = 3.0 * np.exp(-t / 0.05) - 1.0 * (1.0 - np.exp(-t / 0.12))
+    inst_f = freq * 2 ** (bend_semitones / 12.0)
+    phase = 2 * np.pi * np.cumsum(inst_f) / SR
+    tone = _osc(phase, nharm=9, tilt=1.7, odd_only=True)  # mellow square = cartoon voice
+    tone = _smooth(tone, 9)
+    env = _adsr(n, SR, a=0.008, d=0.06, s=0.55, r=0.12)
+    return (tone * env * amp * 0.5).astype(np.float32)
 
 
 def render_synth(notes, voice: str, out_path: Path) -> bool:
@@ -216,8 +245,9 @@ def render_synth(notes, voice: str, out_path: Path) -> bool:
         i = int(start * SR)
         j = min(len(buf), i + len(wave_arr))
         buf[i:j] += wave_arr[: j - i]
+    # Clean linear peak-normalisation — no tanh saturation (avoids distortion).
     peak = float(np.max(np.abs(buf))) or 1.0
-    buf = np.tanh(buf / peak * 1.1) * 0.92
+    buf = buf / peak * 0.9
     write_wav(out_path, buf)
     return True
 
@@ -324,6 +354,10 @@ def main() -> int:
     ap.add_argument("--renderer", choices=["auto", "fluidsynth", "synth"], default="auto")
     ap.add_argument("--force", action="store_true", help="overwrite existing styled wavs")
     ap.add_argument("--validate", action="store_true", help="print counts only, render nothing")
+    ap.add_argument("--limit", type=int, default=None,
+                    help="preview: render only the first N midi-backed sounds")
+    ap.add_argument("--only", action="append", default=None,
+                    help="preview: render only this base name (repeatable / comma-separated)")
     args = ap.parse_args()
 
     if not ORIGINAL_DIR.is_dir():
@@ -340,6 +374,24 @@ def main() -> int:
     print(f"Renderer: {renderer}")
 
     pairs = find_pairs()
+
+    # Preview filters --------------------------------------------------------
+    if args.only:
+        wanted = set()
+        for item in args.only:
+            for name in item.split(","):
+                name = name.strip()
+                if name:
+                    wanted.add(name[:-4] if name.endswith(".wav") else name)
+        pairs = [p for p in pairs if p[0] in wanted]
+        if not pairs:
+            sys.exit(f"No sounds matched --only {sorted(wanted)}")
+    if args.limit is not None:
+        pairs = [p for p in pairs if p[2] is not None][: args.limit]
+    if args.only or args.limit is not None:
+        names = ", ".join(p[0] for p in pairs)
+        print(f"Preview mode — rendering {len(pairs)} sound(s): {names}")
+
     rendered = skipped_nomidi = skipped_exists = failed = 0
 
     for base, _wav, mid in pairs:
