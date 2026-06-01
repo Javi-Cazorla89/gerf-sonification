@@ -14,6 +14,7 @@ interface SoundLibraryProps {
 const TABS: { id: TrackId; label: string }[] = [
   { id: "brain", label: "Brain" },
   { id: "gut", label: "Gut" },
+  { id: "skin", label: "Skin" },
 ];
 
 const SoundLibrary = ({ sounds, open, tab, onTabChange, onClose, onAddSound }: SoundLibraryProps) => {
@@ -25,8 +26,10 @@ const SoundLibrary = ({ sounds, open, tab, onTabChange, onClose, onAddSound }: S
   // A sound belongs to the active tab if its category matches; unassigned sounds
   // surface under Brain so nothing is hidden.
   const items = sounds.filter((s) =>
-    tab === "brain" ? s.category !== "gut" : s.category === "gut",
+    tab === "brain" ? s.category === "brain" || s.category === "unassigned" : s.category === tab,
   );
+
+  const tabLabel = TABS.find((t) => t.id === tab)?.label ?? "Brain";
 
   return (
     // The overlay is purely visual: pointer-events are disabled so native
@@ -65,7 +68,7 @@ const SoundLibrary = ({ sounds, open, tab, onTabChange, onClose, onAddSound }: S
 
         <p className="library__hint">
           <b>Drag</b> a sound onto a card, or tap <b>Add</b> to drop it into{" "}
-          {tab === "brain" ? "Brain" : "Gut"}.
+          {tabLabel}.
         </p>
 
         <div className="lib-grid">

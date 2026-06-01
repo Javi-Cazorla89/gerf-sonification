@@ -30,11 +30,14 @@
   --ok: #58b97a;
   --ok-deep: #3f9a60;
 
-  /* Brain (blue/purple) and Gut (orange/green) accents */
+  /* Brain (blue/purple), Gut (orange/green) and Skin (pink/coral) accents */
   --brain-1: var(--purple);
   --brain-soft: var(--lavender-2);
   --gut-1: var(--orange);
   --gut-soft: #fff1dc;
+  --skin-1: var(--pink);
+  --skin-soft: #ffe3f4;
+  --skin-deep: #a83a82;
 
   --radius: 26px;
   --radius-sm: 18px;
@@ -303,7 +306,8 @@ button {
 
 .studio {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* 3 stages across on desktop; reflows to 2 then 1 on iPad / mobile. */
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 24px;
   align-items: start;
 }
@@ -727,7 +731,7 @@ button {
 
 .np-lanes {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 16px;
 }
 
@@ -1368,12 +1372,40 @@ button {
 .welcome__go:active { transform: translate(4px, 4px); box-shadow: 2px 2px 0 0 var(--purple); }
 
 /* ---------- responsive ---------- */
+/* .studio / .np-lanes use auto-fit, so they reflow 3 -> 2 -> 1 on their own. */
 @media (max-width: 1000px) {
-  .studio { grid-template-columns: 1fr; }
-  .np-lanes { grid-template-columns: 1fr; }
   .helper { grid-template-columns: 1fr; }
   .hero { flex-direction: column; align-items: stretch; }
   .hero__controls { align-items: stretch; }
   .hero__actions { justify-content: flex-start; }
   .hero__title h1 { font-size: 40px; }
 }
+
+/* Phone / narrow iPad: force a single clean column. */
+@media (max-width: 640px) {
+  .studio { grid-template-columns: 1fr; }
+  .np-lanes { grid-template-columns: 1fr; }
+}
+
+/* ---------- Skin stage (pink/coral) — mirrors the Gut accents ---------- */
+.stage--skin { background: var(--skin-soft); }
+.stage--skin .stage__disc { background: var(--pink-soft); }
+.stage--skin .stage__name { text-shadow: 2px 2px 0 var(--pink-soft); }
+.stage--skin .track-lane.is-over { background: var(--pink-soft); }
+
+.clip-card--skin { background: var(--pink-soft); }
+.clip-card--skin .clip-card__progress-fill { background: var(--pink); }
+
+.np-lane--skin { background: var(--skin-soft); }
+.np-lane--skin .np-lane__face { background: var(--pink-soft); }
+.np-lane--skin .np-pulse span { background: var(--pink); border-color: var(--skin-deep); }
+.np-lane--skin .np-lane__bar-fill { background: var(--pink); }
+
+.pill--skin { background: var(--pink-soft); color: var(--skin-deep); }
+
+.mascot--skin .mascot__disc { background: var(--pink-soft); }
+
+.sound-card--skin { background: var(--skin-soft); }
+.rhythm--skin { background: var(--pink-soft); }
+.rhythm--skin .rhythm__dot { background: var(--pink); }
+.rhythm--skin .rhythm__wave path { stroke: var(--pink); }
