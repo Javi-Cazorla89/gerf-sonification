@@ -346,7 +346,7 @@ const App = () => {
 
       <header className="hero">
         <div className="hero__title">
-          <h1>Brain &amp; Gut Studio</h1>
+          <h1>Sir Tone&apos;s Music Studio by the Hashemi Lab</h1>
         </div>
         <div className="hero__controls">
           <InstrumentSelector value={styleId} onChange={setStyleId} />
