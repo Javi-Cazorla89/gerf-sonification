@@ -7,17 +7,17 @@ export interface InstrumentOption {
   pathPrefix: string;
 }
 
-// The playful "Sir Tone plays …" styles shown in the UI. These currently all
-// map to the original recordings (no styled audio files exist yet) but drive
-// the segmented-control selector.
-export type SoundStyleId = "classical" | "electronic" | "funny";
+// The playful "Sir Tone plays …" styles shown in the UI. Each style maps to a
+// folder under public/audio (strings / electronic / funny). When a styled file
+// is missing, playback falls back to public/audio/original.
+export type SoundStyleId = "strings" | "electronic" | "funny";
 
 export interface SoundStyleOption {
   id: SoundStyleId;
   name: string;
   icon: string;
-  /** The instrument bank this style maps to until styled audio exists. */
-  instrumentId: InstrumentId;
+  /** Folder under /audio that holds this style's files (same filenames as original). */
+  folder: SoundStyleId;
 }
 
 export type TrackId = "brain" | "gut";
@@ -42,7 +42,8 @@ export interface Clip {
   soundId: string;
   trackId: TrackId;
   name: string;
-  filePath: string;
+  /** Exact .wav filename from config — playback resolves the style folder from this. */
+  fileName: string;
   midiPath?: string;
   duration?: number;
   orderIndex: number;
