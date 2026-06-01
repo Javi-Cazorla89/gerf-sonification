@@ -50,6 +50,18 @@ python3 scripts/render_styles.py --force     # re-render / overwrite existing
 python3 scripts/render_styles.py --renderer synth   # force the built-in synth
 ```
 
+**Preview a few first** (handy when tweaking the presets):
+
+```bash
+python3 scripts/render_styles.py --limit 2 --force                       # first 2 sounds
+python3 scripts/render_styles.py --only brain_diffusion_3peaks_no-drug --force  # one sound
+```
+
+The built-in synth voices are: **strings** = smooth sustained string pad (no
+vibrato/detune warble); **electronic** = clean band-limited synth, bright but
+not piercing; **funny** = playful cartoon synth blip with a gentle pitch bounce
+(deliberately *not* xylophone/marimba/bells).
+
 This writes, for every `original/<base>.wav` that has a `original/<base>.mid`:
 
 ```
