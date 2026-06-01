@@ -62,7 +62,8 @@ const App = () => {
   const [progressByClipId, setProgressByClipId] = useState<Record<string, number>>({});
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [libraryTab, setLibraryTab] = useState<TrackId>("brain");
-  const [helpOpen, setHelpOpen] = useState(false);
+  // Open the How to play modal on first load (it's closable with "Let's go!").
+  const [helpOpen, setHelpOpen] = useState(true);
 
   // Per-track audio elements and stop signaling. Refs avoid re-render churn while playing.
   const trackAudioRefs = useRef<Record<TrackId, HTMLAudioElement | null>>({
@@ -368,27 +369,6 @@ const App = () => {
           </div>
         </div>
       </header>
-
-      <div className="helper">
-        <div className="helper__step">
-          <span className="helper__num">1</span>
-          <span className="helper__text">
-            Open the <b>library</b> &amp; add sounds
-          </span>
-        </div>
-        <div className="helper__step">
-          <span className="helper__num">2</span>
-          <span className="helper__text">
-            Press the big <b>PLAY</b>
-          </span>
-        </div>
-        <div className="helper__step">
-          <span className="helper__num">3</span>
-          <span className="helper__text">
-            <b>Listen</b> — they sing together!
-          </span>
-        </div>
-      </div>
 
       <main className="studio-wrap">
         <TrackList
