@@ -20,7 +20,6 @@ const InstrumentSelector = ({ value, onChange }: InstrumentSelectorProps) => {
             aria-pressed={value === style.id}
             onClick={() => onChange(style.id)}
           >
-            <span className="style-opt__icon" aria-hidden>{style.icon}</span>
             {style.name}
           </button>
         ))}

@@ -15,7 +15,6 @@ export type SoundStyleId = "strings" | "electronic" | "funny";
 export interface SoundStyleOption {
   id: SoundStyleId;
   name: string;
-  icon: string;
   /** Folder under /audio that holds this style's files (same filenames as original). */
   folder: SoundStyleId;
 }

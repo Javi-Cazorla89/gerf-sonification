@@ -7,8 +7,6 @@ interface NowPlayingPanelProps {
   progressByClipId: Record<string, number>;
 }
 
-const FACE: Record<TrackId, string> = { brain: "🧠", gut: "🦠", skin: "🧴" };
-
 const Lane = ({
   trackId,
   label,
@@ -24,7 +22,6 @@ const Lane = ({
   return (
     <div className={`np-lane np-lane--${trackId} ${clip ? "is-active" : ""}`}>
       <div className="np-lane__head">
-        <span className="np-lane__face" aria-hidden>{FACE[trackId]}</span>
         <span className={`pill pill--${trackId}`}>{label}</span>
         <span className="np-lane__title">{clip ? clip.name : "—"}</span>
       </div>
@@ -53,7 +50,7 @@ const NowPlayingPanel = ({ brain, gut, skin, progressByClipId }: NowPlayingPanel
     <div className="panel now-playing">
       <div className="panel-header">
         <p className="repeat-heading" aria-hidden>
-          NOW PLAYING · NOW PLAYING · NOW PLAYING
+          NOW PLAYING
         </p>
         <p className="eyebrow">Now Playing</p>
         <h2>Live Signal</h2>

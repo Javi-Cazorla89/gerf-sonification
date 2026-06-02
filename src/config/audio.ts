@@ -18,9 +18,9 @@ export const INSTRUMENTS: InstrumentOption[] = [
 // public/audio holding the same filenames as original/. When a styled file is
 // missing, playback falls back to original/ (see stylePath / originalPath).
 export const SOUND_STYLES: SoundStyleOption[] = [
-  { id: "strings", name: "String Orchestra", icon: "🎻", folder: "strings" },
-  { id: "electronic", name: "Electronic", icon: "🎹", folder: "electronic" },
-  { id: "funny", name: "Funny", icon: "🤪", folder: "funny" },
+  { id: "strings", name: "String Orchestra", folder: "strings" },
+  { id: "electronic", name: "Electronic", folder: "electronic" },
+  { id: "funny", name: "Funny", folder: "funny" },
 ];
 
 // The default style selected on load.
@@ -46,15 +46,54 @@ const inferCategory = (fileName: string): SoundCategory => {
 };
 
 // Friendly label for the UI only — NEVER used to build a file path.
+// Strips the drug-state token; that is surfaced separately as an uppercase tag.
 const prettify = (fileName: string): string =>
   fileName
     .replace(/\.wav$/i, "")
+    .replace(/_?(no|pre|post)-drug/gi, "")
     .replace(/[_-]+/g, " ")
-    .replace(/\bno drug\b/gi, "(no drug)")
-    .replace(/\bpre drug\b/gi, "(pre-drug)")
-    .replace(/\bpost drug\b/gi, "(post-drug)")
     .replace(/\s+/g, " ")
     .trim();
+
+// Pre/post/no-drug surfaced as a clearly apparent uppercase tag.
+const drugTag = (fileName: string): string => {
+  const lower = fileName.toLowerCase();
+  if (lower.includes("post-drug")) return "[POST-DRUG]";
+  if (lower.includes("pre-drug")) return "[PRE-DRUG]";
+  if (lower.includes("no-drug")) return "[NO-DRUG]";
+  return "";
+};
+
+// Gut lineage pulled straight from the filename, e.g. "organoid2" -> "organoid 2".
+const gutLineage = (fileName: string): string => {
+  const match = fileName.toLowerCase().match(/organoid\s*([0-9]+)/);
+  return match ? `organoid ${match[1]}` : "organoid";
+};
+
+// Minimal distinguisher for gut clips that share a lineage — the activity
+// descriptor between the organoid token and the drug state, e.g. "1peak".
+const gutVariant = (fileName: string): string => {
+  const match = fileName
+    .toLowerCase()
+    .match(/organoid[0-9]+_(.+?)_(?:no|pre|post)-drug/);
+  return match ? match[1].replace(/[_-]+/g, " ") : "";
+};
+
+// UI label per category:
+//  - brain: flagged as a female lineage, descriptive detail kept.
+//  - gut: labeled ONLY by lineage (organoid number), peaks/noise detail dropped.
+//  - skin/other: prettified filename.
+// Every label ends with the drug-state tag when present.
+const labelFor = (fileName: string, category: SoundCategory): string => {
+  const tag = drugTag(fileName);
+  const base =
+    category === "brain"
+      ? `Female ${prettify(fileName)}`
+      : category === "gut"
+        ? `Gut ${gutLineage(fileName)}${gutVariant(fileName) ? ` · ${gutVariant(fileName)}` : ""}`
+        : prettify(fileName);
+  return [base, tag].filter(Boolean).join(" ");
+};
 
 /**
  * SOURCE OF TRUTH — the real playable files in public/audio.
@@ -93,7 +132,7 @@ export const SOUND_LIBRARY: SoundDefinition[] = AUDIO_ENTRIES.map(({ wav, midi }
   const category = inferCategory(wav);
   return {
     id: wav.replace(/\.wav$/i, ""),
-    displayName: prettify(wav),
+    displayName: labelFor(wav, category),
     fileName: wav,
     filePath: originalPath(wav),
     midiPath: midi ? originalPath(midi) : undefined,
