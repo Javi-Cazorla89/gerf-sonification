@@ -12,10 +12,10 @@ interface TrackProps {
   onOpenLibrary: (trackId: TrackId) => void;
 }
 
-const STAGE_INFO: Record<TrackId, { title: string; sub: string; face: string }> = {
-  brain: { title: "BRAIN", sub: "thinking signals", face: "🧠" },
-  gut: { title: "GUT", sub: "gut feelings", face: "🦠" },
-  skin: { title: "SKIN", sub: "skin signals", face: "🧴" },
+const STAGE_INFO: Record<TrackId, { title: string; sub: string }> = {
+  brain: { title: "BRAIN", sub: "thinking signals" },
+  gut: { title: "GUT", sub: "gut feelings" },
+  skin: { title: "SKIN", sub: "skin signals" },
 };
 
 const Track = ({
@@ -55,7 +55,6 @@ const Track = ({
         <SirToneMascot cat={track.id} singing={isSinging} size="sm" />
         <div className="stage__head-text">
           <h2 className="stage__name">
-            <span className="stage__badge" aria-hidden>{info.face}</span>
             {info.title}
           </h2>
           <div className="stage__sub">{info.sub}</div>
@@ -67,7 +66,6 @@ const Track = ({
           aria-pressed={muted}
           title={muted ? "Unmute" : "Mute"}
         >
-          <span className="onoff__icon" aria-hidden>{muted ? "🔇" : "🔊"}</span>
           {muted ? "OFF" : "ON"}
         </button>
       </div>

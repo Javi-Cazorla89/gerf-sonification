@@ -7,7 +7,7 @@ interface HelpPanelProps {
 const STEPS = [
   "Open the Sound Library and add sounds to Brain & Gut.",
   "Press the big green PLAY button.",
-  "Listen — both tracks sing together! 🎶",
+  "Listen — both tracks sing together!",
 ];
 
 const HelpPanel = ({ onClose }: HelpPanelProps) => {
@@ -25,7 +25,7 @@ const HelpPanel = ({ onClose }: HelpPanelProps) => {
         <div className="welcome__hero">
           <SirToneMascot cat="brain" singing size="lg" />
         </div>
-        <h2 className="welcome__title">Meet Sir Tone! 🎵</h2>
+        <h2 className="welcome__title">Meet Sir Tone!</h2>
         <p className="welcome__copy">
           Sir Tone turns real serotonin signals from a <b>brain</b> and a <b>gut</b> into music.
           Help him build a song from both!
