@@ -385,6 +385,7 @@ const App = () => {
           gut={gutNowPlaying ?? null}
           skin={skinNowPlaying ?? null}
           progressByClipId={progressByClipId}
+          styleId={styleId}
         />
       </main>
 

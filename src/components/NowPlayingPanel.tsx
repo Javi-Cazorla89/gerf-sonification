@@ -1,10 +1,12 @@
-import type { Clip, TrackId } from "../types/audio";
+import type { Clip, SoundStyleId, TrackId } from "../types/audio";
+import SignalPlot from "./SignalPlot";
 
 interface NowPlayingPanelProps {
   brain: Clip | null;
   gut: Clip | null;
   skin: Clip | null;
   progressByClipId: Record<string, number>;
+  styleId: SoundStyleId;
 }
 
 const Lane = ({
@@ -12,11 +14,13 @@ const Lane = ({
   label,
   clip,
   progress,
+  styleId,
 }: {
   trackId: TrackId;
   label: string;
   clip: Clip | null;
   progress: number;
+  styleId: SoundStyleId;
 }) => {
   const pct = Math.max(0, Math.min(1, progress)) * 100;
   return (
@@ -27,13 +31,12 @@ const Lane = ({
       </div>
       <div className="np-lane__visual">
         {clip ? (
-          <div className="np-pulse" aria-hidden>
-            <span />
-            <span />
-            <span />
-            <span />
-            <span />
-          </div>
+          <SignalPlot
+            fileName={clip.fileName}
+            styleId={styleId}
+            trackId={trackId}
+            progress={progress}
+          />
         ) : (
           <span className="np-lane__idle">Idle</span>
         )}
@@ -45,7 +48,7 @@ const Lane = ({
   );
 };
 
-const NowPlayingPanel = ({ brain, gut, skin, progressByClipId }: NowPlayingPanelProps) => {
+const NowPlayingPanel = ({ brain, gut, skin, progressByClipId, styleId }: NowPlayingPanelProps) => {
   return (
     <div className="panel now-playing">
       <div className="panel-header">
@@ -61,18 +64,21 @@ const NowPlayingPanel = ({ brain, gut, skin, progressByClipId }: NowPlayingPanel
           label="Brain"
           clip={brain}
           progress={brain ? progressByClipId[brain.id] ?? 0 : 0}
+          styleId={styleId}
         />
         <Lane
           trackId="gut"
           label="Gut"
           clip={gut}
           progress={gut ? progressByClipId[gut.id] ?? 0 : 0}
+          styleId={styleId}
         />
         <Lane
           trackId="skin"
           label="Skin"
           clip={skin}
           progress={skin ? progressByClipId[skin.id] ?? 0 : 0}
+          styleId={styleId}
         />
       </div>
       {/* TODO: when .mid files are loaded, render note-level events here using midiPath. */}

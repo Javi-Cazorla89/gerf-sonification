@@ -789,8 +789,9 @@ button {
   align-items: center;
   justify-content: center;
   position: relative;
+  overflow: hidden;
   background: var(--cream);
-  border: 2.5px dashed var(--purple);
+  border: 2.5px solid var(--purple);
   border-radius: 12px;
 }
 
@@ -802,23 +803,57 @@ button {
   font-weight: 900;
 }
 
-.np-pulse { display: flex; gap: 6px; align-items: flex-end; height: 76%; }
-.np-pulse span {
-  width: 10px;
-  background: var(--purple);
-  border: 2px solid var(--purple-deep);
-  border-radius: 4px;
-  animation: bar 0.9s ease-in-out infinite;
+/* --- Synthetic FSCV-like signal trace (replaces the fake equalizer) ------- */
+.signal-plot {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* Per-track accent; overridden below. Drives line/area/peak colours. */
+  --signal: var(--purple);
 }
-.np-lane--gut .np-pulse span { background: var(--orange); border-color: #7a3a00; }
-.np-pulse span:nth-child(2) { animation-delay: 0.1s; }
-.np-pulse span:nth-child(3) { animation-delay: 0.2s; }
-.np-pulse span:nth-child(4) { animation-delay: 0.3s; }
-.np-pulse span:nth-child(5) { animation-delay: 0.4s; }
+.signal-plot--brain { --signal: var(--purple); }
+.signal-plot--gut   { --signal: var(--orange); }
+.signal-plot--skin  { --signal: var(--pink); }
 
-@keyframes bar {
-  0%, 100% { height: 22%; }
-  50%      { height: 95%; }
+.signal-plot__line {
+  fill: none;
+  stroke: var(--signal);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  /* viewBox is non-uniformly scaled, so keep strokes visually even-ish. */
+  vector-effect: non-scaling-stroke;
+}
+.signal-plot__area {
+  fill: var(--signal);
+  opacity: 0.14;
+  stroke: none;
+}
+.signal-plot__peak {
+  fill: var(--cream);
+  stroke: var(--signal);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+.signal-plot__playhead line {
+  stroke: var(--purple-deep);
+  stroke-width: 1.5;
+  opacity: 0.55;
+  vector-effect: non-scaling-stroke;
+}
+.signal-plot__playhead circle {
+  fill: var(--purple-deep);
+  stroke: var(--cream);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.signal-plot.is-placeholder .signal-plot__placeholder-line {
+  stroke: var(--purple-mid);
+  stroke-width: 2;
+  stroke-dasharray: 5 6;
+  opacity: 0.55;
+  vector-effect: non-scaling-stroke;
 }
 
 .np-lane__bar {
@@ -1398,7 +1433,6 @@ button {
 
 .np-lane--skin { background: var(--skin-soft); }
 .np-lane--skin .np-lane__face { background: var(--pink-soft); }
-.np-lane--skin .np-pulse span { background: var(--pink); border-color: var(--skin-deep); }
 .np-lane--skin .np-lane__bar-fill { background: var(--pink); }
 
 .pill--skin { background: var(--pink-soft); color: var(--skin-deep); }
