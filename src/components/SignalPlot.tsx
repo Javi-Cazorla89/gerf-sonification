@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { SoundStyleId, TrackId } from "../types/audio";
 
 // Shape of the precomputed JSON written by scripts/generate_synthetic_signals.py.
@@ -24,16 +24,15 @@ interface SignalPlotProps {
   fileName: string;
   styleId: SoundStyleId;
   trackId: TrackId;
-  /** Clip progress 0..1 (audio.currentTime / audio.duration). Drives the playhead. */
-  progress: number;
   showPeaks?: boolean;
 }
 
-// SVG canvas units. Scaled to fill the lane via width/height 100% + non-uniform
-// preserveAspectRatio, so the trace always spans the full visual box.
-const W = 300;
-const H = 80;
-const PAD_Y = 6;
+// The SVG viewBox is sized to the measured pixel box (see ResizeObserver below)
+// so 1 unit == 1px. That keeps the peak dots perfectly circular at any card
+// height instead of stretching into ovals. PAD_Y insets the trace top/bottom.
+const PAD_Y = 8;
+// Fallback size used for the very first paint, before the box is measured.
+const DEFAULT_SIZE = { w: 300, h: 110 };
 
 // Module-level cache so each signal JSON is fetched at most once per session.
 // Keyed by the resolved URL. Value is a promise to dedupe concurrent lanes.
@@ -75,11 +74,30 @@ const SignalPlot = ({
   fileName,
   styleId,
   trackId,
-  progress,
   showPeaks = true,
 }: SignalPlotProps) => {
   const [signal, setSignal] = useState<SignalData | null>(null);
   const [loaded, setLoaded] = useState(false);
+
+  // Measure the rendered box so the SVG works in real pixels (1 unit == 1px).
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const [size, setSize] = useState(DEFAULT_SIZE);
+  useLayoutEffect(() => {
+    const el = hostRef.current;
+    if (!el) return;
+    const update = () => {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) {
+        setSize((prev) =>
+          prev.w === r.width && prev.h === r.height ? prev : { w: r.width, h: r.height },
+        );
+      }
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -95,54 +113,42 @@ const SignalPlot = ({
     };
   }, [fileName, styleId]);
 
-  // Precompute the SVG geometry once per signal (points don't change at runtime).
+  const { w, h } = size;
+
+  // Geometry in pixel space. Recomputed when the signal OR the box size changes.
   const geom = useMemo(() => {
     if (!signal) return null;
     const pts = signal.points;
     const maxT = pts[pts.length - 1]?.t || signal.durationSec || 1;
-    const xOf = (t: number) => (t / maxT) * W;
-    const yOf = (y: number) => H - PAD_Y - y * (H - 2 * PAD_Y);
+    const xOf = (t: number) => (t / maxT) * w;
+    const yOf = (y: number) => h - PAD_Y - y * (h - 2 * PAD_Y);
 
-    const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${xOf(p.t).toFixed(2)} ${yOf(p.y).toFixed(2)}`).join(" ");
-    const area = `${line} L${W} ${H} L0 ${H} Z`;
+    const line = pts
+      .map((p, i) => `${i === 0 ? "M" : "L"}${xOf(p.t).toFixed(2)} ${yOf(p.y).toFixed(2)}`)
+      .join(" ");
+    const area = `${line} L${xOf(maxT).toFixed(2)} ${h} L0 ${h} Z`;
     return { xOf, yOf, line, area, maxT };
-  }, [signal]);
-
-  const clampProgress = Math.max(0, Math.min(1, progress));
-
-  // Playhead position. points are uniform in time, so the index that matches the
-  // current progress is simply progress * (n-1); we interpolate y between samples.
-  const playhead = useMemo(() => {
-    if (!signal || !geom) return null;
-    const pts = signal.points;
-    const n = pts.length;
-    const fpos = clampProgress * (n - 1);
-    const i = Math.floor(fpos);
-    const frac = fpos - i;
-    const a = pts[i];
-    const b = pts[Math.min(n - 1, i + 1)];
-    const y = a.y + (b.y - a.y) * frac;
-    return { x: clampProgress * W, y: geom.yOf(y) };
-  }, [signal, geom, clampProgress]);
+  }, [signal, w, h]);
 
   // Missing / not-yet-loaded -> simple placeholder baseline (never "missing file").
   if (!geom || !signal) {
     return (
-      <svg
-        className={`signal-plot signal-plot--${trackId} is-placeholder`}
-        viewBox={`0 0 ${W} ${H}`}
-        preserveAspectRatio="none"
-        role="img"
-        aria-label={loaded ? "Signal unavailable" : "Loading signal"}
-      >
-        <line
-          className="signal-plot__placeholder-line"
-          x1="0"
-          y1={H / 2}
-          x2={W}
-          y2={H / 2}
-        />
-      </svg>
+      <div ref={hostRef} className="signal-plot__host">
+        <svg
+          className={`signal-plot signal-plot--${trackId} is-placeholder`}
+          viewBox={`0 0 ${w} ${h}`}
+          role="img"
+          aria-label={loaded ? "Signal unavailable" : "Loading signal"}
+        >
+          <line
+            className="signal-plot__placeholder-line"
+            x1="0"
+            y1={h / 2}
+            x2={w}
+            y2={h / 2}
+          />
+        </svg>
+      </div>
     );
   }
 
@@ -153,40 +159,27 @@ const SignalPlot = ({
   }));
 
   return (
-    <svg
-      className={`signal-plot signal-plot--${trackId}`}
-      viewBox={`0 0 ${W} ${H}`}
-      preserveAspectRatio="none"
-      role="img"
-      aria-label={`Synthetic ${trackId} signal`}
-    >
-      {/* soft fill under the trace */}
-      <path className="signal-plot__area" d={geom.area} />
-      {/* the signal trace itself */}
-      <path className="signal-plot__line" d={geom.line} />
+    <div ref={hostRef} className="signal-plot__host">
+      <svg
+        className={`signal-plot signal-plot--${trackId}`}
+        viewBox={`0 0 ${w} ${h}`}
+        role="img"
+        aria-label={`Synthetic ${trackId} signal`}
+      >
+        {/* soft fill under the trace */}
+        <path className="signal-plot__area" d={geom.area} />
+        {/* the signal trace itself */}
+        <path className="signal-plot__line" d={geom.line} />
 
-      {/* optional peak markers */}
-      {showPeaks &&
-        peaks.map((pk, i) => (
-          <circle
-            key={i}
-            className="signal-plot__peak"
-            cx={pk.x}
-            cy={pk.y}
-            r={3}
-          >
-            <title>{pk.label}</title>
-          </circle>
-        ))}
-
-      {/* moving playhead synced to clip progress */}
-      {playhead && (
-        <g className="signal-plot__playhead">
-          <line x1={playhead.x} y1="0" x2={playhead.x} y2={H} />
-          <circle cx={playhead.x} cy={playhead.y} r={4} />
-        </g>
-      )}
-    </svg>
+        {/* optional peak markers */}
+        {showPeaks &&
+          peaks.map((pk, i) => (
+            <circle key={i} className="signal-plot__peak" cx={pk.x} cy={pk.y} r={3}>
+              <title>{pk.label}</title>
+            </circle>
+          ))}
+      </svg>
+    </div>
   );
 };
 
