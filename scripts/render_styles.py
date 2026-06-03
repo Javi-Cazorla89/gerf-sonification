@@ -29,8 +29,10 @@ Two renderers are supported, chosen automatically (override with --renderer):
 Voices (built-in synth):
     strings    - smooth sustained string pad (no vibrato/detune warble)
     electronic - clean band-limited synth, bright but not piercing
-    funny      - playful cartoon synth blip with a gentle pitch bounce
-                 (deliberately NOT xylophone/marimba/bells)
+    funny      - cartoon speaking voice: formant-shaped "wah/doo/bop/yah"
+                 babble that follows the note pitch with a scoop + vibrato
+                 (deliberately NOT xylophone/marimba/bells). Always used for
+                 the funny style, even under the fluidsynth renderer.
 
 Usage:
     python3 scripts/render_styles.py                       # render everything
@@ -79,7 +81,7 @@ STYLES: dict[str, dict] = {
     },
     "funny": {
         "folder": "funny",
-        "gm_program": 12,   # GM 13 "Marimba"
+        "gm_program": 12,   # unused: funny always renders via the cartoon vocal synth
         "voice": "funny",
         "soundfont": None,
     },
@@ -184,7 +186,28 @@ def _smooth(x, width: int):
     return np.convolve(x, k, mode="same").astype(np.float32)
 
 
-def render_note_synth(voice: str, freq: float, dur: float, vel: float):
+# --- Cartoon-voice (funny) formant tables ----------------------------------
+# Vowel formants (F1, F2, F3) in Hz. Deliberately broad/cartoonish, not a real
+# speaker. The funny voice glides between these to fake spoken syllables.
+_VOWELS = {
+    "ah": (730.0, 1090.0, 2440.0),   # open  "ah"
+    "oo": (300.0, 870.0, 2240.0),    # round "oo"
+    "o":  (570.0, 840.0, 2410.0),    # "aw/o"
+    "ee": (270.0, 2290.0, 3010.0),   # front "ee" (used for the y-glide)
+}
+
+# One entry per cartoon syllable, cycled by note index so a clip babbles
+# "wah, doo, bop, yah, wah, …" deterministically. plosive: a short noise burst
+# at onset (d = brighter, b = duller); None = a smooth /w/ or /y/ glide.
+_SYLLABLES = [
+    ("wah", "oo", "ah", None),  # rounded -> open, scoops up
+    ("doo", "oo", "oo", "d"),   # d burst -> "oo"
+    ("bop", "o",  "o",  "b"),   # b burst -> "o", hard stop at the end
+    ("yah", "ee", "ah", None),  # front "ee" -> open "ah"
+]
+
+
+def render_note_synth(voice: str, freq: float, dur: float, vel: float, idx: int = 0):
     import numpy as np
 
     amp = vel / 127.0
@@ -216,19 +239,68 @@ def render_note_synth(voice: str, freq: float, dur: float, vel: float):
         env = _adsr(n, SR, a=0.012, d=0.07, s=0.80, r=0.14)
         return (tone * env * amp * 0.5).astype(np.float32)
 
-    # "funny" -> playful cartoon synth blip. A short, soft filtered-square
-    # "toot" with a gentle downward pitch bounce. NO xylophone/marimba/bells.
-    length = 0.38
+    # "funny" -> cartoon SPEAKING voice ("wah/doo/bop/yah"), NOT xylophone/
+    # marimba. A formant-shaped voiced tone follows the note's pitch with a quick
+    # scoop and light vibrato, while the vowel glides start->end to fake a spoken
+    # syllable. The syllable is chosen by note index so a clip babbles lively but
+    # repeatably.
+    name, vstart, vend, plosive = _SYLLABLES[idx % len(_SYLLABLES)]
+    v0 = np.array(_VOWELS[vstart])
+    v1 = np.array(_VOWELS[vend])
+
+    # Keep every syllable short and snappy no matter how long the MIDI note is —
+    # cartoon speech is punchy, not a sustained pad.
+    length = min(max(dur, 0.20), 0.40) + 0.06
     n = max(1, int(length * SR))
     t = np.arange(n) / SR
-    # Pitch starts ~3 semitones high and bounces down, settling just below base.
-    bend_semitones = 3.0 * np.exp(-t / 0.05) - 1.0 * (1.0 - np.exp(-t / 0.12))
-    inst_f = freq * 2 ** (bend_semitones / 12.0)
+
+    # Pitch: a quick scoop into the target note (up for open syllables, down for
+    # "bop") plus a gentle vibrato that fades in. Small per-index variation keeps
+    # repeated syllables from sounding identical.
+    start_off = -3.0 if vstart in ("oo", "ee") else 2.0
+    glide = start_off * np.exp(-t / 0.045)
+    vib_freq = 5.5 + 0.4 * ((idx % 3) - 1)
+    vib = 0.25 * np.sin(2 * np.pi * vib_freq * t) * (1.0 - np.exp(-t / 0.06))
+    inst_f = freq * 2 ** ((glide + vib) / 12.0)
     phase = 2 * np.pi * np.cumsum(inst_f) / SR
-    tone = _osc(phase, nharm=9, tilt=1.7, odd_only=True)  # mellow square = cartoon voice
-    tone = _smooth(tone, 9)
-    env = _adsr(n, SR, a=0.008, d=0.06, s=0.55, r=0.12)
-    return (tone * env * amp * 0.5).astype(np.float32)
+
+    # Vowel gesture: glide the three formants from the start vowel to the end
+    # vowel over the first ~60% of the syllable (front-loaded for a spoken feel).
+    gesture = np.clip(t / (0.6 * length), 0.0, 1.0) ** 0.6
+    formants = [v0[i] + (v1[i] - v0[i]) * gesture for i in range(3)]
+    form_amp = (1.0, 0.7, 0.35)
+    form_bw = (90.0, 110.0, 160.0)
+
+    # Additive formant synthesis: harmonics of the (time-varying) fundamental,
+    # each weighted by the formant response so the timbre reads as a vowel.
+    # Cap the harmonic count to just above F3 to stay cheap and alias-free.
+    kmax = int(min(60, max(8, 5000.0 / max(60.0, freq))))
+    tone = np.zeros(n, dtype=np.float64)
+    for k in range(1, kmax + 1):
+        hk = k * inst_f  # this harmonic's instantaneous frequency
+        gain = np.zeros(n)
+        for fc, fa, bw in zip(formants, form_amp, form_bw):
+            gain += fa * np.exp(-((hk - fc) ** 2) / (2.0 * bw * bw))
+        tone += (1.0 / k) * gain * np.sin(k * phase)  # 1/k glottal source rolloff
+
+    # Plosive onset: a short filtered-noise burst for d/b (deterministic noise).
+    if plosive is not None:
+        nb = min(int(0.018 * SR), n)
+        rng = np.random.default_rng(1000 + idx)
+        burst = _smooth(rng.standard_normal(nb).astype(np.float32),
+                        5 if plosive == "d" else 11)
+        tone[:nb] += 0.5 * burst * np.linspace(1.0, 0.0, nb)
+
+    # Envelope: short attack + playful decay; "bop" ends abruptly like a /p/.
+    if plosive == "b":
+        env = _adsr(n, SR, a=0.010, d=0.10, s=0.42, r=0.05)
+    else:
+        env = _adsr(n, SR, a=0.012, d=0.09, s=0.60, r=0.10)
+
+    tone = _smooth(tone, 3)
+    out = tone * env
+    peak = float(np.max(np.abs(out))) or 1.0
+    return (out / peak * amp * 0.9).astype(np.float32)
 
 
 def render_synth(notes, voice: str, out_path: Path) -> bool:
@@ -239,9 +311,9 @@ def render_synth(notes, voice: str, out_path: Path) -> bool:
     tail = 0.6
     total = max(end for _, end, _, _ in notes) + tail
     buf = np.zeros(int(total * SR) + 1, dtype=np.float32)
-    for start, end, note, vel in notes:
+    for idx, (start, end, note, vel) in enumerate(notes):
         freq = 440.0 * 2 ** ((note - 69) / 12.0)
-        wave_arr = render_note_synth(voice, freq, max(0.05, end - start), vel)
+        wave_arr = render_note_synth(voice, freq, max(0.05, end - start), vel, idx)
         i = int(start * SR)
         j = min(len(buf), i + len(wave_arr))
         buf[i:j] += wave_arr[: j - i]
@@ -400,8 +472,10 @@ def main() -> int:
             skipped_nomidi += 1
             continue
 
-        notes = parse_notes(mid) if renderer == "synth" else None
-        if renderer == "synth" and not notes:
+        # Always parse notes: the funny cartoon voice is synthesised from them
+        # even when the fluidsynth renderer handles the other styles.
+        notes = parse_notes(mid)
+        if not notes:
             print(f"  SKIP  (empty midi)  {base}")
             skipped_nomidi += 1
             continue
@@ -412,7 +486,11 @@ def main() -> int:
                 skipped_exists += 1
                 continue
             try:
-                if renderer == "fluidsynth":
+                # Funny ALWAYS uses the built-in cartoon vocal synth (never the
+                # marimba GM program), regardless of the selected renderer.
+                if name == "funny":
+                    ok = render_synth(notes, "funny", out_path)
+                elif renderer == "fluidsynth":
                     ok = render_fluidsynth(mid, cfg, out_path)
                 else:
                     ok = render_synth(notes, cfg["voice"], out_path)
