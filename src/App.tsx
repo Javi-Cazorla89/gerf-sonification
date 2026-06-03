@@ -14,55 +14,77 @@ import {
 } from "./config/audio";
 import type { Clip, SoundStyleId, Status, TrackId, TrackModel } from "./types/audio";
 
-// HEAD-probe a URL. Returns true only when the server has a real file there.
-// NOTE: Vite's dev server answers a missing path with index.html and a 200, so
-// a bare `res.ok` would wrongly report styled files as existing — we reject any
-// text/html response so the original/ fallback kicks in.
-async function audioExists(path: string): Promise<boolean> {
+// Is this audio URL already in the service worker's Cache Storage? This is the
+// authoritative offline check: the SW caches audio with a GET, and
+// `caches.match` (ignoreSearch, so it ignores any ?__WB_REVISION__) finds it
+// even with no network. We NEVER use HEAD for this — HEAD can fail offline and
+// does not match a cached GET response.
+async function cachedAudio(path: string): Promise<boolean> {
+  if (typeof caches === "undefined") return false;
   try {
-    const res = await fetch(path, { method: "HEAD" });
-    if (res.ok) {
-      const type = res.headers.get("content-type") ?? "";
-      if (!type.includes("text/html")) return true;
-    }
+    return !!(await caches.match(path, { ignoreSearch: true }));
   } catch {
-    // Offline (or HEAD unsupported) — fall through to the precache check below.
+    return false;
   }
-  // PWA offline support: the service worker precaches every clip with a GET, but
-  // Workbox's precache doesn't answer HEAD requests. When the network probe above
-  // fails, consult Cache Storage directly so precached files still resolve.
-  if (typeof caches !== "undefined") {
-    try {
-      const cached = await caches.match(path, { ignoreSearch: true });
-      if (cached) return true;
-    } catch {
-      // ignore — treat as not cached
-    }
-  }
-  return false;
 }
 
-// Pick the path to actually play: the styled file if it exists, otherwise the
-// original recording. Returns null only when neither exists. Paths are built
-// from the exact fileName — never from a displayName.
+// Network existence probe — ONLY used when online. Vite/dev answers a missing
+// path with index.html + 200, so we reject any text/html response so the
+// original/ fallback still kicks in.
+async function networkExists(path: string): Promise<boolean> {
+  try {
+    const res = await fetch(path, { method: "HEAD" });
+    if (!res.ok) return false;
+    const type = res.headers.get("content-type") ?? "";
+    return !type.includes("text/html");
+  } catch {
+    return false;
+  }
+}
+
+// Pick the path to actually play. Resolution order (cache FIRST so offline never
+// marks a clip missing): cached styled → cached original → (online only) network
+// styled → network original. Paths are built from the exact fileName — never a
+// displayName.
 async function resolvePlayablePath(
   fileName: string,
   styleId: SoundStyleId,
 ): Promise<string | null> {
   const styled = stylePath(styleId, fileName);
   const original = originalPath(fileName);
+  const online = typeof navigator === "undefined" || navigator.onLine !== false;
+  console.log("[audio] style:", styleId, "| fileName:", fileName, "| online:", online);
 
-  if (await audioExists(styled)) {
-    console.log("Playing styled:", styled);
+  // 1) Cache Storage first — works fully offline.
+  console.log("[audio] checking styled (cache):", styled);
+  if (await cachedAudio(styled)) {
+    console.log("[audio] cache HIT styled → resolved:", styled);
     return styled;
   }
+  console.log("[audio] cache MISS styled → fallback to original");
 
-  if (await audioExists(original)) {
-    console.log("Falling back to original:", original);
+  console.log("[audio] checking original (cache):", original);
+  if (await cachedAudio(original)) {
+    console.log("[audio] cache HIT original → resolved:", original);
     return original;
   }
+  console.log("[audio] cache MISS original");
 
-  console.error("Missing both styled and original:", { styled, original });
+  // 2) Online only — fall back to a network HEAD probe (styled, then original).
+  if (online) {
+    if (await networkExists(styled)) {
+      console.log("[audio] network OK styled → resolved:", styled);
+      return styled;
+    }
+    console.log("[audio] network miss styled → trying original");
+    if (await networkExists(original)) {
+      console.log("[audio] network OK original → resolved:", original);
+      return original;
+    }
+    console.log("[audio] network miss original");
+  }
+
+  console.error("[audio] UNRESOLVED — marking missing:", { styled, original });
   return null;
 }
 
