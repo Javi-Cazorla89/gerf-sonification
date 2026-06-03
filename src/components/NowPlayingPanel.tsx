@@ -31,12 +31,7 @@ const Lane = ({
       </div>
       <div className="np-lane__visual">
         {clip ? (
-          <SignalPlot
-            fileName={clip.fileName}
-            styleId={styleId}
-            trackId={trackId}
-            progress={progress}
-          />
+          <SignalPlot fileName={clip.fileName} styleId={styleId} trackId={trackId} />
         ) : (
           <span className="np-lane__idle">Idle</span>
         )}
@@ -49,6 +44,12 @@ const Lane = ({
 };
 
 const NowPlayingPanel = ({ brain, gut, skin, progressByClipId, styleId }: NowPlayingPanelProps) => {
+  // Resolve each lane's progress from the PLAYING clip instance id (clip.id) —
+  // the same key App writes in its progress loop. Never sound/library id.
+  const brainProgress = brain ? progressByClipId[brain.id] ?? 0 : 0;
+  const gutProgress = gut ? progressByClipId[gut.id] ?? 0 : 0;
+  const skinProgress = skin ? progressByClipId[skin.id] ?? 0 : 0;
+
   return (
     <div className="panel now-playing">
       <div className="panel-header">
@@ -63,21 +64,21 @@ const NowPlayingPanel = ({ brain, gut, skin, progressByClipId, styleId }: NowPla
           trackId="brain"
           label="Brain"
           clip={brain}
-          progress={brain ? progressByClipId[brain.id] ?? 0 : 0}
+          progress={brainProgress}
           styleId={styleId}
         />
         <Lane
           trackId="gut"
           label="Gut"
           clip={gut}
-          progress={gut ? progressByClipId[gut.id] ?? 0 : 0}
+          progress={gutProgress}
           styleId={styleId}
         />
         <Lane
           trackId="skin"
           label="Skin"
           clip={skin}
-          progress={skin ? progressByClipId[skin.id] ?? 0 : 0}
+          progress={skinProgress}
           styleId={styleId}
         />
       </div>
