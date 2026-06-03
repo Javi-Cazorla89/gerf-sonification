@@ -1438,38 +1438,46 @@ button {
 .rhythm--skin .rhythm__dot { background: var(--pink); }
 .rhythm--skin .rhythm__wave path { stroke: var(--pink); }
 
-/* --- PWA "Offline ready" / update badge ----------------------------------- */
+/* --- PWA offline status badge (persistent) -------------------------------- */
 .pwa-badge {
   position: fixed;
-  left: 16px;
-  bottom: 16px;
+  left: 14px;
+  bottom: 14px;
   z-index: 2000;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 9px 14px;
-  border-radius: var(--pill);
+  gap: 9px;
+  padding: 8px 13px;
+  border-radius: 16px;
   border: 3px solid var(--purple);
   background: var(--cream);
   color: var(--purple-deep);
-  font-weight: 900;
-  font-size: 13px;
   box-shadow: var(--shadow-sm);
   animation: pwa-badge-in 0.25s ease-out;
 }
-.pwa-badge--ready { cursor: pointer; }
+.pwa-badge--caching { opacity: 0.92; }
 .pwa-badge__dot {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
   border-radius: 50%;
-  background: var(--yellow);
   border: 2px solid var(--purple);
   font-size: 11px;
 }
-.pwa-badge--update button {
+.pwa-badge--ready .pwa-badge__dot { background: var(--yellow); }
+.pwa-badge--caching .pwa-badge__dot { background: var(--cream-2, #fff7e0); }
+.pwa-badge__text { display: flex; flex-direction: column; line-height: 1.15; }
+.pwa-badge__main { font-weight: 900; font-size: 13px; }
+.pwa-badge__meta {
+  font-weight: 700;
+  font-size: 10px;
+  opacity: 0.75;
+  letter-spacing: 0.02em;
+}
+.pwa-badge__update {
   border: 2px solid var(--purple);
   background: var(--yellow);
   color: var(--purple-deep);
@@ -1478,12 +1486,6 @@ button {
   border-radius: var(--pill);
   padding: 3px 10px;
   cursor: pointer;
-}
-.pwa-badge__close {
-  background: transparent !important;
-  border: none !important;
-  padding: 0 2px !important;
-  font-size: 13px !important;
 }
 @keyframes pwa-badge-in {
   from { transform: translateY(8px); opacity: 0; }

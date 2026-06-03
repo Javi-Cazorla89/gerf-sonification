@@ -10,8 +10,13 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      // Custom service worker (src/sw.ts): app shell + signals are precached,
+      // audio is served via a Range-capable CacheFirst cache that's warmed on
+      // install — so iPad Safari's partial (Range) audio requests work offline.
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.ts",
       registerType: "autoUpdate",
-      // Extra files (already in public/) to make sure they land in the precache.
       includeAssets: ["sir-tone.png", "apple-touch-icon.png"],
       manifest: {
         name: "Sir Tone's Music Studio",
@@ -35,39 +40,16 @@ export default defineConfig({
           },
         ],
       },
-      workbox: {
-        // Precache the WHOLE app so it runs offline after one online visit:
-        // built JS/CSS/HTML, icons/images, every audio clip and every signal JSON.
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,webmanifest,woff,woff2,wav,mid,json}"],
-        // Largest clip is ~1.2 MB; lift the default 2 MiB cap with headroom.
-        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
-        cleanupOutdatedCaches: true,
-        // Single-page app: serve index.html for offline navigations.
-        navigateFallback: "index.html",
-        // Don't let the SPA fallback swallow asset requests.
-        navigateFallbackDenylist: [/^\/audio\//, /^\/signals\//],
-        runtimeCaching: [
-          // Google Fonts stylesheet + font files — cache-first so the app keeps
-          // its Lilita One / Nunito look offline once seen online.
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: "CacheFirst",
-            options: {
-              cacheName: "google-fonts-stylesheets",
-              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
-            handler: "CacheFirst",
-            options: {
-              cacheName: "google-fonts-webfonts",
-              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
+      injectManifest: {
+        // Include EVERYTHING in the manifest the SW reads: app shell, icons,
+        // signal JSON, and every audio clip. sw.ts precaches the shell/signals
+        // and warm-caches the audio separately.
+        globPatterns: [
+          "**/*.{js,css,html,ico,png,svg,webmanifest,woff,woff2,wav,mid,json}",
         ],
+        // Largest clip is ~1.2 MB — lift the default 2 MiB cap so audio is
+        // included in the manifest (and therefore warmed on install).
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
       },
       devOptions: {
         // Keep the SW off during `vite dev` so it doesn't cache work-in-progress.
