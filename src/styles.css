@@ -1437,3 +1437,55 @@ button {
 .rhythm--skin { background: var(--pink-soft); }
 .rhythm--skin .rhythm__dot { background: var(--pink); }
 .rhythm--skin .rhythm__wave path { stroke: var(--pink); }
+
+/* --- PWA "Offline ready" / update badge ----------------------------------- */
+.pwa-badge {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 2000;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-radius: var(--pill);
+  border: 3px solid var(--purple);
+  background: var(--cream);
+  color: var(--purple-deep);
+  font-weight: 900;
+  font-size: 13px;
+  box-shadow: var(--shadow-sm);
+  animation: pwa-badge-in 0.25s ease-out;
+}
+.pwa-badge--ready { cursor: pointer; }
+.pwa-badge__dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--yellow);
+  border: 2px solid var(--purple);
+  font-size: 11px;
+}
+.pwa-badge--update button {
+  border: 2px solid var(--purple);
+  background: var(--yellow);
+  color: var(--purple-deep);
+  font-weight: 900;
+  font-size: 12px;
+  border-radius: var(--pill);
+  padding: 3px 10px;
+  cursor: pointer;
+}
+.pwa-badge__close {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 2px !important;
+  font-size: 13px !important;
+}
+@keyframes pwa-badge-in {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}

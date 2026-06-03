@@ -21,13 +21,25 @@ import type { Clip, SoundStyleId, Status, TrackId, TrackModel } from "./types/au
 async function audioExists(path: string): Promise<boolean> {
   try {
     const res = await fetch(path, { method: "HEAD" });
-    if (!res.ok) return false;
-    const type = res.headers.get("content-type") ?? "";
-    if (type.includes("text/html")) return false;
-    return true;
+    if (res.ok) {
+      const type = res.headers.get("content-type") ?? "";
+      if (!type.includes("text/html")) return true;
+    }
   } catch {
-    return false;
+    // Offline (or HEAD unsupported) — fall through to the precache check below.
   }
+  // PWA offline support: the service worker precaches every clip with a GET, but
+  // Workbox's precache doesn't answer HEAD requests. When the network probe above
+  // fails, consult Cache Storage directly so precached files still resolve.
+  if (typeof caches !== "undefined") {
+    try {
+      const cached = await caches.match(path, { ignoreSearch: true });
+      if (cached) return true;
+    } catch {
+      // ignore — treat as not cached
+    }
+  }
+  return false;
 }
 
 // Pick the path to actually play: the styled file if it exists, otherwise the

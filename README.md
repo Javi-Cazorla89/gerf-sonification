@@ -12,6 +12,55 @@ npm run dev      # http://localhost:5173
 npx tsc --noEmit # type-check
 ```
 
+## Offline use on iPad (installable PWA)
+
+The app is a Progressive Web App. **Open it online once**, add it to the Home
+Screen, and it then runs **fully offline** — all UI, audio clips, and signal
+graphs are served from an on-device cache. A small **"✓ Offline ready"** badge
+appears (bottom-left) the first time caching finishes, so you know it's safe to
+disconnect.
+
+### 1. Deploy / open once online
+
+Build and host the contents of `dist/` on any HTTPS static host (Vercel,
+Netlify, GitHub Pages, …). A service worker requires **HTTPS** (or
+`localhost`).
+
+```bash
+npm run build      # outputs dist/ (includes the service worker + web manifest)
+npm run preview    # local production preview at http://localhost:4173
+```
+
+Open the deployed URL on the iPad in **Safari** while online and wait a few
+seconds for the **"✓ Offline ready"** badge — that means every audio clip and
+signal file has been cached (~34 MB).
+
+### 2. Add to Home Screen (iPad)
+
+1. In **Safari**, tap the **Share** button (square with an upward arrow).
+2. Choose **Add to Home Screen**.
+3. Confirm the name (**Sir Tone**) and tap **Add**.
+4. Launch the app from its Home-Screen icon — it opens full-screen
+   (standalone, landscape) with no browser chrome.
+
+### 3. Test in Airplane Mode
+
+1. Make sure you opened the app online at least once and saw the badge.
+2. Enable **Airplane Mode** (or turn off Wi-Fi).
+3. Launch the app from the Home Screen — it loads instantly from cache.
+4. Add Brain / Gut / Skin sounds, switch styles, and press **Play** — audio
+   and signal graphs all work with no connection.
+
+> Updating: when you redeploy a new build, the next time the iPad opens the app
+> **with a connection** it caches the update in the background and shows a
+> **"New version ready → Reload"** pill. Offline, the last cached version keeps
+> working.
+
+The PWA is configured in `vite.config.ts` (via `vite-plugin-pwa`): a precache of
+all built assets + `public/audio/**` + `public/signals/**`, cache-first for
+static files and Google Fonts, and the `manifest.webmanifest` (name, standalone,
+landscape, cream/purple theme).
+
 ## Audio styles (folder-based)
 
 Audio lives under `public/audio/`, one folder per style, all using the **same
@@ -21,7 +70,7 @@ base filenames**:
 public/audio/original/    raw recordings (source of truth) + optional .mid
 public/audio/strings/     string-orchestra renders
 public/audio/electronic/  synth / electronic renders
-public/audio/funny/       toy marimba / xylophone renders
+public/audio/funny/       cartoon speaking-voice ("wah/doo/bop/yah") renders
 ```
 
 The UI style picker offers **String Orchestra**, **Electronic**, and **Funny**
@@ -59,8 +108,9 @@ python3 scripts/render_styles.py --only brain_diffusion_3peaks_no-drug --force  
 
 The built-in synth voices are: **strings** = smooth sustained string pad (no
 vibrato/detune warble); **electronic** = clean band-limited synth, bright but
-not piercing; **funny** = playful cartoon synth blip with a gentle pitch bounce
-(deliberately *not* xylophone/marimba/bells).
+not piercing; **funny** = cartoon speaking voice that babbles "wah/doo/bop/yah"
+following each note's pitch (formant-shaped, deliberately *not*
+xylophone/marimba/bells). Funny always uses this built-in vocal synth.
 
 This writes, for every `original/<base>.wav` that has a `original/<base>.mid`:
 
@@ -76,10 +126,11 @@ The script picks a renderer automatically (override with `--renderer`):
 
 - **`fluidsynth`** (preferred) — used when the `fluidsynth` binary is on `PATH`
   **and** a SoundFont is available. Each style remaps the MIDI to a General MIDI
-  program, so a single GM SoundFont yields all three timbres:
+  program for the pitched styles:
   - strings → GM *String Ensemble 1*
   - electronic → GM *Lead 2 (sawtooth)*
-  - funny → GM *Marimba*
+  - funny → **always** the built-in cartoon vocal synth (never a GM program),
+    even under fluidsynth
 
   Install + point at a SoundFont:
 
@@ -94,9 +145,9 @@ The script picks a renderer automatically (override with `--renderer`):
   Per-style SoundFont overrides live in `STYLES` in `scripts/render_styles.py`.
 
 - **`synth`** (built-in fallback) — a dependency-light `numpy` synth with a
-  hand-tuned voice per style (string ensemble / detuned synth lead / percussive
-  marimba). No SoundFont needed; used automatically when fluidsynth is absent.
-  This is what runs out of the box.
+  hand-tuned voice per style (string ensemble / detuned synth lead / cartoon
+  vocal babble). No SoundFont needed; used automatically when fluidsynth is
+  absent. This is what runs out of the box.
 
 ### 3. Validate
 
