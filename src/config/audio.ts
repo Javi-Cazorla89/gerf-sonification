@@ -19,7 +19,9 @@ export const INSTRUMENTS: InstrumentOption[] = [
 // missing, playback falls back to original/ (see stylePath / originalPath).
 export const SOUND_STYLES: SoundStyleOption[] = [
   { id: "strings", name: "String Orchestra", folder: "strings" },
-  { id: "electronic", name: "Electronic", folder: "electronic" },
+  // Label only — the id/folder stay "electronic" so audio paths are unchanged.
+  // The renderer now produces a calm yoga/meditation pad for this style.
+  { id: "electronic", name: "Calm", folder: "electronic" },
   { id: "funny", name: "Funny", folder: "funny" },
 ];
 

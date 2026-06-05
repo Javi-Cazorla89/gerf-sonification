@@ -6,7 +6,7 @@ interface HelpPanelProps {
 
 const STEPS = [
   "Open the Sound Library and add sounds to Brain, Gut, and Skin.",
-  "Choose how Sir Tone plays: String Orchestra, Electronic, or Funny.",
+  "Choose how Sir Tone plays: String Orchestra, Calm, or Funny.",
   "Press the big green PLAY button, then watch the live signal graphs as the tracks sing together.",
 ];
 

@@ -6,8 +6,8 @@ For every `<base>.wav` in public/audio/original/ this looks for a matching
 `<base>.mid` and renders three styled versions using the SAME base filename:
 
     public/audio/strings/<base>.wav      -> string ensemble
-    public/audio/electronic/<base>.wav   -> synth / electronic lead
-    public/audio/funny/<base>.wav        -> toy marimba / xylophone
+    public/audio/electronic/<base>.wav   -> calm yoga/meditation ambient pad
+    public/audio/funny/<base>.wav        -> cartoon speaking voice
 
 If a WAV has no matching MIDI it is skipped and logged (the app keeps falling
 back to public/audio/original/ for those, so nothing breaks).
@@ -28,7 +28,11 @@ Two renderers are supported, chosen automatically (override with --renderer):
 
 Voices (built-in synth):
     strings    - smooth sustained string pad (no vibrato/detune warble)
-    electronic - clean band-limited synth, bright but not piercing
+    electronic - calm yoga/meditation pad: warm sine/triangle tones with a soft
+                 attack, long release, gentle chorus warmth, a very light
+                 shimmer and a subtle multi-tap reverb tail. Deliberately NOT a
+                 sawtooth lead. Always rendered with the built-in synth (never
+                 the GM sawtooth program), regardless of the selected renderer.
     funny      - cartoon speaking voice: formant-shaped "wah/doo/bop/yah"
                  babble that follows the note pitch with a scoop + vibrato
                  (deliberately NOT xylophone/marimba/bells). Always used for
@@ -75,7 +79,10 @@ STYLES: dict[str, dict] = {
     },
     "electronic": {
         "folder": "electronic",
-        "gm_program": 81,   # GM 82 "Lead 2 (sawtooth)"
+        # gm_program is unused for this style: electronic ALWAYS renders via the
+        # built-in calm-pad synth (see main()). Kept as a warm GM pad for
+        # documentation only. GM 89 "Pad 2 (warm)" (0-indexed 88).
+        "gm_program": 88,
         "voice": "electronic",
         "soundfont": None,
     },
@@ -186,6 +193,27 @@ def _smooth(x, width: int):
     return np.convolve(x, k, mode="same").astype(np.float32)
 
 
+def _reverb(x, sr: int):
+    """Subtle ambient reverb via vectorised multi-tap early reflections.
+
+    A small set of decaying delay taps (feed-forward, so no IIR feedback to go
+    unstable) plus a light lowpass gives the soft, spacious "yoga studio" tail
+    used by the calm pad voice. The output is longer than the input by the
+    longest tap so the tail is not clipped.
+    """
+    import numpy as np
+
+    taps = [(0.037, 0.50), (0.071, 0.34), (0.113, 0.24), (0.170, 0.16),
+            (0.240, 0.11), (0.310, 0.07)]
+    extra = int(max(d for d, _ in taps) * sr) + 1
+    out = np.zeros(len(x) + extra, dtype=np.float32)
+    out[: len(x)] = x
+    for delay, gain in taps:
+        d = int(delay * sr)
+        out[d: d + len(x)] += (gain * x).astype(np.float32)
+    return _smooth(out, 9)
+
+
 # --- Cartoon-voice (funny) formant tables ----------------------------------
 # Vowel formants (F1, F2, F3) in Hz. Deliberately broad/cartoonish, not a real
 # speaker. The funny voice glides between these to fake spoken syllables.
@@ -227,17 +255,28 @@ def render_note_synth(voice: str, freq: float, dur: float, vel: float, idx: int 
         return (tone * env * amp * 0.4).astype(np.float32)
 
     if voice == "electronic":
-        # Clean synth: band-limited saw + hollow sub-oscillator, lightly
-        # lowpassed so it's bright but not piercing. Light envelope.
-        length = dur + 0.18
+        # Calm yoga/meditation pad. Warm, soft sine/triangle tones built from a
+        # few low harmonics with a steep rolloff (dark, never piercing), a gentle
+        # sub-octave for body (NOT an aggressive bass), a slowly-detuned twin for
+        # chorus warmth, and a very light, slowly fading octave-up shimmer. Soft
+        # attack and long release so notes bloom and overlap into a wash. The
+        # reverb tail is added at the mix stage (see render_synth). No sawtooth.
+        length = dur + 1.4
         n = max(1, int(length * SR))
         t = np.arange(n) / SR
         phase = 2 * np.pi * freq * t
-        tone = _osc(phase, nharm=12, tilt=1.10)
-        tone += 0.30 * _osc(2 * np.pi * (freq * 0.5) * t, nharm=5, tilt=1.4, odd_only=True)
-        tone = _smooth(tone, 7)
-        env = _adsr(n, SR, a=0.012, d=0.07, s=0.80, r=0.14)
-        return (tone * env * amp * 0.5).astype(np.float32)
+        # Warm body: fundamental + soft 2nd/3rd partials (triangle-ish, smooth).
+        tone = np.sin(phase) + 0.18 * np.sin(2 * phase) + 0.08 * np.sin(3 * phase)
+        # Gentle sub-octave sine for warmth (kept low so the bass never dominates).
+        tone += 0.16 * np.sin(0.5 * phase)
+        # Chorus warmth: a slightly detuned twin (~0.5% sharp) gives a slow,
+        # soothing beat rather than a static or warbling tone.
+        tone += 0.28 * np.sin(2 * np.pi * (freq * 1.005) * t)
+        # Very light shimmer: a quiet two-octaves-up sine that fades in slowly.
+        shimmer = 0.045 * (1.0 - np.exp(-t / 0.9)) * np.sin(4 * phase)
+        tone = _smooth(tone + shimmer, 9)  # extra lowpass smoothing = soft/warm
+        env = _adsr(n, SR, a=0.45, d=0.30, s=0.85, r=0.80)
+        return (tone * env * amp * 0.32).astype(np.float32)
 
     # "funny" -> cartoon SPEAKING voice ("wah/doo/bop/yah"), NOT xylophone/
     # marimba. A formant-shaped voiced tone follows the note's pitch with a quick
@@ -308,7 +347,9 @@ def render_synth(notes, voice: str, out_path: Path) -> bool:
 
     if not notes:
         return False
-    tail = 0.6
+    # The calm pad has a long release, so give it extra room before the tail is
+    # truncated; its reverb then extends the buffer further (see below).
+    tail = 2.0 if voice == "electronic" else 0.6
     total = max(end for _, end, _, _ in notes) + tail
     buf = np.zeros(int(total * SR) + 1, dtype=np.float32)
     for idx, (start, end, note, vel) in enumerate(notes):
@@ -317,6 +358,9 @@ def render_synth(notes, voice: str, out_path: Path) -> bool:
         i = int(start * SR)
         j = min(len(buf), i + len(wave_arr))
         buf[i:j] += wave_arr[: j - i]
+    # Calm pad only: a subtle reverb tail for the soft, spacious yoga feel.
+    if voice == "electronic":
+        buf = _reverb(buf, SR)
     # Clean linear peak-normalisation — no tanh saturation (avoids distortion).
     peak = float(np.max(np.abs(buf))) or 1.0
     buf = buf / peak * 0.9
@@ -486,10 +530,11 @@ def main() -> int:
                 skipped_exists += 1
                 continue
             try:
-                # Funny ALWAYS uses the built-in cartoon vocal synth (never the
-                # marimba GM program), regardless of the selected renderer.
-                if name == "funny":
-                    ok = render_synth(notes, "funny", out_path)
+                # Funny ALWAYS uses the built-in cartoon vocal synth, and
+                # electronic ALWAYS uses the built-in calm pad — both bypass the
+                # GM programs so they sound right regardless of the renderer.
+                if name in ("funny", "electronic"):
+                    ok = render_synth(notes, cfg["voice"], out_path)
                 elif renderer == "fluidsynth":
                     ok = render_fluidsynth(mid, cfg, out_path)
                 else:
