@@ -45,14 +45,35 @@ const inferCategory = (fileName: string): SoundCategory => {
   return "unassigned";
 };
 
-// Friendly label for the UI only — NEVER used to build a file path.
-// Strips the drug-state token; that is surfaced separately as an uppercase tag.
-const prettify = (fileName: string): string =>
+// Words that merely repeat the Brain/Gut/Skin section heading (or add no useful
+// detail) and so are dropped from display names. This NEVER affects file paths.
+const REDUNDANT_WORDS = new Set(["brain", "gut", "skin", "organoid", "diffusion", "very"]);
+
+// Capitalise a single word but keep all-caps identifiers (OSKC, HSKC) intact.
+const formatToken = (token: string): string =>
+  /^[A-Z0-9]+$/.test(token)
+    ? token
+    : token.charAt(0).toUpperCase() + token.slice(1).toLowerCase();
+
+// Build a short, kid-friendly descriptor from a filename: drops the extension,
+// the drug token (surfaced separately) and the redundant category words above,
+// and expands peak counts ("3peaks" -> "3 Peaks"). UI ONLY — never a file path.
+const describe = (fileName: string): string =>
   fileName
     .replace(/\.wav$/i, "")
     .replace(/_?(no|pre|post)-drug/gi, "")
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
+    .split(/[_\-\s]+/)
+    .filter(Boolean)
+    .flatMap((token) => {
+      const peak = token.toLowerCase().match(/^(\d+)peaks?$/);
+      if (peak) return [`${peak[1]} Peak${peak[1] === "1" ? "" : "s"}`];
+      // Strip redundant words, including ones with a trailing lineage number
+      // such as "organoid2" (the number is re-attached for gut below).
+      const bare = token.toLowerCase().replace(/\d+$/, "");
+      if (REDUNDANT_WORDS.has(bare)) return [];
+      return [formatToken(token)];
+    })
+    .join(" ")
     .trim();
 
 // Pre/post/no-drug surfaced as a clearly apparent uppercase tag.
@@ -64,34 +85,23 @@ const drugTag = (fileName: string): string => {
   return "";
 };
 
-// Gut lineage pulled straight from the filename, e.g. "organoid2" -> "organoid 2".
-const gutLineage = (fileName: string): string => {
+// Gut lineage number pulled straight from the filename, e.g. "organoid2" -> "2".
+const gutLineageNumber = (fileName: string): string => {
   const match = fileName.toLowerCase().match(/organoid\s*([0-9]+)/);
-  return match ? `organoid ${match[1]}` : "organoid";
+  return match ? match[1] : "";
 };
 
-// Minimal distinguisher for gut clips that share a lineage — the activity
-// descriptor between the organoid token and the drug state, e.g. "1peak".
-const gutVariant = (fileName: string): string => {
-  const match = fileName
-    .toLowerCase()
-    .match(/organoid[0-9]+_(.+?)_(?:no|pre|post)-drug/);
-  return match ? match[1].replace(/[_-]+/g, " ") : "";
-};
-
-// UI label per category:
-//  - brain: flagged as a female lineage, descriptive detail kept.
-//  - gut: labeled ONLY by lineage (organoid number), peaks/noise detail dropped.
-//  - skin/other: prettified filename.
+// UI label per category. The category words (brain/gut/skin/organoid/…) are
+// already implied by the section heading, so they are stripped. Gut clips keep
+// a compact lineage marker ("· #2") so different organoids stay distinguishable.
 // Every label ends with the drug-state tag when present.
 const labelFor = (fileName: string, category: SoundCategory): string => {
   const tag = drugTag(fileName);
-  const base =
-    category === "brain"
-      ? `Female ${prettify(fileName)}`
-      : category === "gut"
-        ? `Gut ${gutLineage(fileName)}${gutVariant(fileName) ? ` · ${gutVariant(fileName)}` : ""}`
-        : prettify(fileName);
+  let base = describe(fileName);
+  if (category === "gut") {
+    const lineage = gutLineageNumber(fileName);
+    if (lineage) base = `${base} · #${lineage}`;
+  }
   return [base, tag].filter(Boolean).join(" ");
 };
 
