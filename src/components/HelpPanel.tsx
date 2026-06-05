@@ -5,9 +5,9 @@ interface HelpPanelProps {
 }
 
 const STEPS = [
-  "Open the Sound Library and add sounds to Brain & Gut.",
-  "Press the big green PLAY button.",
-  "Listen — both tracks sing together!",
+  "Open the Sound Library and add sounds to Brain, Gut, and Skin.",
+  "Choose how Sir Tone plays: String Orchestra, Electronic, or Funny.",
+  "Press the big green PLAY button, then watch the live signal graphs as the tracks sing together.",
 ];
 
 const HelpPanel = ({ onClose }: HelpPanelProps) => {
@@ -27,8 +27,8 @@ const HelpPanel = ({ onClose }: HelpPanelProps) => {
         </div>
         <h2 className="welcome__title">Meet Sir Tone!</h2>
         <p className="welcome__copy">
-          Sir Tone turns real serotonin signals from a <b>brain</b> and a <b>gut</b> into music.
-          Help him build a song from both!
+          Sir Tone turns real serotonin signals from the <b>brain</b>, <b>gut</b>, and <b>skin</b> into music.
+          Help him build a song from all three!
         </p>
         <div className="welcome__steps">
           {STEPS.map((step, i) => (
